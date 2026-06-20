@@ -821,6 +821,8 @@ export class HUD {
       panelX = Math.max(10, Math.min(cw - panelW - 10, panelX));
 
       // Draw panel background
+      this._cardRect = { x: panelX, y: panelY, w: panelW, h: panelH };
+
       ctx.fillStyle = THEME.PANEL_BG;
       ctx.globalAlpha = 0.92;
       ctx.fillRect(panelX, panelY, panelW, panelH);

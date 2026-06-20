@@ -500,6 +500,14 @@ export class Engine {
             if (this.audio) this.audio.selectUnit(nearest.def);
           }
         } else if (this.selection.count() > 0) {
+          // Don't close card if click is inside the building info panel
+          if (this.hud && this.hud._cardRect) {
+            const r = this.hud._cardRect;
+            if (evt.screenX >= r.x && evt.screenX <= r.x + r.w &&
+                evt.screenY >= r.y && evt.screenY <= r.y + r.h) {
+              continue;
+            }
+          }
           const selEntities = this.selection.getSelected();
           const allBuildings = selEntities.every(e => e.renderLayer === 'buildings' || !e.damage || e.damage <= 0);
           if (allBuildings) {
