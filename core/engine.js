@@ -499,17 +499,25 @@ export class Engine {
             if (this.audio) this.audio.selectUnit(nearest.def);
           }
         } else if (this.selection.count() > 0) {
-          const isAttackMove = this.input.keys.has('a');
-          for (const entity of this.selection.getSelected()) {
-            entity.target = null;
-            entity.holdPosition = false;
-            entity.attackMove = isAttackMove;
-            entity._powerGuardTarget = false;
-            entity._priorityTargetType = null;
-            entity.moveTo(pos.x, pos.y);
+          const selEntities = this.selection.getSelected();
+          const allBuildings = selEntities.every(e => e.renderLayer === 'buildings' || !e.damage || e.damage <= 0);
+          if (allBuildings) {
+            if (this.hud) { this.hud._showTechTree = false; this.hud._showSettings = false; }
+            this.selection.clearSelection();
+            if (this.audio) this.audio.selectNone();
+          } else {
+            const isAttackMove = this.input.keys.has('a');
+            for (const entity of selEntities) {
+              entity.target = null;
+              entity.holdPosition = false;
+              entity.attackMove = isAttackMove;
+              entity._powerGuardTarget = false;
+              entity._priorityTargetType = null;
+              entity.moveTo(pos.x, pos.y);
+            }
+            this.moveMarkers.push({ x: pos.x, y: pos.y, time: performance.now() });
+            if (this.audio) this.audio.move();
           }
-          this.moveMarkers.push({ x: pos.x, y: pos.y, time: performance.now() });
-          if (this.audio) this.audio.move();
         } else {
           if (this.hud) { this.hud._showTechTree = false; this.hud._showSettings = false; }
           this.selection.clearSelection();
