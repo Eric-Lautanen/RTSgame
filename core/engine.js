@@ -509,7 +509,7 @@ export class Engine {
             }
           }
           const selEntities = this.selection.getSelected();
-          const allBuildings = selEntities.every(e => e.renderLayer === 'buildings' || !e.damage || e.damage <= 0);
+          const allBuildings = selEntities.every(e => e.renderLayer === 'buildings');
           if (allBuildings) {
             if (this.hud) { this.hud._showTechTree = false; this.hud._showSettings = false; }
             this.selection.clearSelection();
