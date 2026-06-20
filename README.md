@@ -46,4 +46,3 @@ A browser-based real-time strategy game built with vanilla JavaScript and Canvas
 - Canvas 2D rendering
 - Web Audio API
 - localStorage for persistence
-- VBScript helper for Windows dev server
