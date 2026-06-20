@@ -880,7 +880,6 @@ export class HUD {
       y += Math.round(8 * S);
 
       // -- Queue bar --
-      const hasQueue = sel.productionQueue && sel.productionQueue.length > 0;
       if (hasQueue) {
         const firstType = sel.productionQueue[0];
         const unitDef = UNITS[firstType];
