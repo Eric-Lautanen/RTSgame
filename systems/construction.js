@@ -13,7 +13,7 @@ export class ConstructionSystem {
     this.activeType = null;
     this.ghost = null;
     this.buildQueue = [];
-    this.showPowerOverlay = false;
+    this.showPowerOverlay = true;
     this._activeSources = new Set();
     this._powerParent = new Map();
   }

@@ -10,7 +10,7 @@ export class Renderer {
     this._nebula = this._generateNebula(12);
     this._nebulaCanvas = null;
     this._nebulaNeedsRedraw = true;
-    this.glowEnabled = true;
+    this.glowEnabled = false;
   }
 
   _generateStars(count) {

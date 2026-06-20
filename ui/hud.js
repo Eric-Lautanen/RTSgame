@@ -51,10 +51,10 @@ export class HUD {
     this._showStartMenu = true;
     this._showPauseMenu = false;
     this.settings = {
-      fogEnabled: true,
-      glowEnabled: true,
-      powerOverlay: false,
-      enemyAI: false,
+      fogEnabled: false,
+      glowEnabled: false,
+      powerOverlay: true,
+      enemyAI: true,
     };
     this._loadSettings();
   }

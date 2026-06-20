@@ -8,7 +8,7 @@ export class FogSystem {
     this.explored = new Uint8Array(this.cols * this.rows);
     this.visible = new Uint8Array(this.cols * this.rows);
     this._tileCache = new Map();
-    this.enabled = true;
+    this.enabled = false;
   }
 
   update(entities) {
