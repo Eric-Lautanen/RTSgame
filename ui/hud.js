@@ -733,6 +733,8 @@ export class HUD {
 
     if (!this.camera) return;
 
+    this._cardRect = null;
+
     const sp = this.camera.worldToScreen(sel.x, sel.y);
     const cw = ctx.canvas.width;
     const ch = ctx.canvas.height;
