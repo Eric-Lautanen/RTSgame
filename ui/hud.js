@@ -741,7 +741,7 @@ export class HUD {
     if (sel instanceof Building) {
       const S = 1.5;
       const panelW = Math.round(300 * S);
-      const panelH = Math.round(250 * S);
+      const panelH = Math.round(290 * S);
 
       let panelX = sp.x + bsr + 15;
       let panelY = sp.y - bsr - panelH + 30;
@@ -761,6 +761,11 @@ export class HUD {
       ctx.strokeRect(panelX, panelY, panelW, panelH);
       ctx.globalAlpha = 1;
 
+      const px = panelX + Math.round(10 * S);
+      const pw = panelW - Math.round(20 * S);
+
+      // ===== TOP SECTION: Name + HP + Production =====
+
       const def = sel.def;
       const name = def?.name || sel.type || 'Unknown';
       ctx.fillStyle = THEME.SPECTER_WHITE;
@@ -768,169 +773,95 @@ export class HUD {
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       const nameY = panelY + Math.round(8 * S);
-      ctx.fillText(name, panelX + Math.round(10 * S), nameY);
+      ctx.fillText(name, px, nameY);
 
-      // Description — word-wrapped below name
-      const descX = panelX + Math.round(10 * S);
-      const descY = nameY + Math.round(22 * S);
-      const descText = def?.description || '';
-      const descLineH = Math.round(13 * S);
-      const maxDescW = panelW - Math.round(40 * S);
-      let descLineCount = 0;
-      if (descText) {
-        ctx.font = `${Math.round(9 * S)}px monospace`;
-        ctx.fillStyle = '#99aabb';
-        const words = descText.split(' ');
-        let line = '';
-        for (const w of words) {
-          const test = line ? line + ' ' + w : w;
-          if (ctx.measureText(test).width > maxDescW) {
-            ctx.fillText(line, descX, descY + descLineCount * descLineH);
-            descLineCount++;
-            line = w;
-          } else {
-            line = test;
-          }
-        }
-        if (line) {
-          ctx.fillText(line, descX, descY + descLineCount * descLineH);
-          descLineCount++;
-        }
-      }
-      const descEndY = descY + descLineCount * descLineH;
-
-      // Building stats / info
-      const infoX = descX;
-      let infoY = descLineCount > 0 ? descEndY + Math.round(6 * S) : descY;
-      const infoLines = [];
-      if (def) {
-        if (def.supplyProvided > 0) infoLines.push(`▸ +${def.supplyProvided} supply`);
-        if (def.powerRadius > 0) infoLines.push(`▸ Power field radius: ${def.powerRadius}`);
-        if (sel.type === 'nexus') infoLines.push('▸ Drop-off point · Generates +1 energy/s, +0.5 matter/s');
-        if (sel.type === 'supply_depot' || sel.type === 'refinery' || sel.type === 'energy_condenser') infoLines.push('▸ Drop-off point — workers deposit resources here');
-        if (sel.type === 'turret' && def.damage) infoLines.push(`▸ Damage: ${def.damage}  Range: ${def.range}  Rate: ${def.attackSpeed}/s`);
-        if (def.energyCost > 0) infoLines.push(`▸ Consumes ${def.energyCost} energy`);
-        if (def.produces && def.produces.length > 0) {
-          const names = def.produces.map(t => UNITS[t]?.name || t).join(', ');
-          infoLines.push(`▸ Produces: ${names}`);
-        }
-        if (def.requiresAge && AGE_ORDER.indexOf(this.factionAge) < AGE_ORDER.indexOf(def.requiresAge)) {
-          const ageDef = AGES[def.requiresAge];
-          infoLines.push(`▸ Requires age: ${ageDef?.name || def.requiresAge}`);
-        }
-        if (def.requiresBuilding && def.requiresBuilding.length > 0) {
-          const names = def.requiresBuilding.map(b => BUILDINGS[b]?.name || b).join(', ');
-          infoLines.push(`▸ Requires: ${names}`);
-        }
-      }
-      if (infoLines.length > 0) {
-        ctx.fillStyle = '#77aacc';
-        ctx.font = `${Math.round(9 * S)}px monospace`;
-        for (let i = 0; i < infoLines.length; i++) {
-          ctx.fillText(infoLines[i], infoX, infoY + i * Math.round(13 * S));
-        }
-      }
-
-      // Separator line before HP section
-      const sepY = infoY + infoLines.length * Math.round(13 * S) + Math.round(6 * S);
-      ctx.strokeStyle = THEME.GRID;
-      ctx.globalAlpha = 0.25;
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(panelX + Math.round(10 * S), sepY);
-      ctx.lineTo(panelX + panelW - Math.round(10 * S), sepY);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-
-      const hpY = sepY + Math.round(8 * S);
+      // HP + Power status
+      const hpY = nameY + Math.round(26 * S);
       const hp = `HP: ${Math.ceil(sel.hp)}/${sel.maxHp}`;
       ctx.fillStyle = THEME.NEUTRAL_GREY;
       ctx.font = `${Math.round(11 * S)}px monospace`;
-      ctx.fillText(hp, panelX + Math.round(10 * S), hpY);
+      ctx.fillText(hp, px, hpY);
 
       if (sel.type !== 'nexus' && sel.type !== 'pylon') {
         const powerColor = sel.powered ? THEME.SPECTER_CYAN : THEME.ENEMY_RED;
-        const powerText = sel.powered ? '⚡ Powered' : '⛔ Unpowered';
         ctx.fillStyle = powerColor;
         ctx.font = `${Math.round(10 * S)}px monospace`;
-        ctx.fillText(powerText, panelX + panelW - Math.round(90 * S), hpY);
+        ctx.textAlign = 'right';
+        ctx.fillText(sel.powered ? '⚡ Powered' : '⛔ Unpowered', panelX + panelW - Math.round(10 * S), hpY);
+        ctx.textAlign = 'left';
       }
 
       const hpPct = sel.hp / sel.maxHp;
       const hpColor = hpPct > 0.5 ? THEME.SPECTER_CYAN : (hpPct > 0.25 ? THEME.UI_GOLD : THEME.ENEMY_RED);
-      const hpBarX = panelX + Math.round(10 * S);
-      const hpBarY = hpY + Math.round(14 * S);
-      const hpBarW = panelW - Math.round(20 * S);
-      const hpBarH = Math.round(4 * S);
+      const hpBarY = hpY + Math.round(16 * S);
       ctx.fillStyle = '#33111166';
-      ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
+      ctx.fillRect(px, hpBarY, pw, Math.round(4 * S));
       ctx.fillStyle = hpColor;
-      ctx.fillRect(hpBarX, hpBarY, hpBarW * hpPct, hpBarH);
+      ctx.fillRect(px, hpBarY, pw * hpPct, Math.round(4 * S));
 
-      const prodStartY = hpBarY + Math.round(10 * S);
+      // Production queue bar (if producing)
+      this._buttons = this._buttons.filter(b => b.action !== 'produce');
+
+      let afterHpY = hpBarY + Math.round(12 * S);
 
       if (sel.productionQueue && sel.productionQueue.length > 0) {
-        ctx.fillStyle = THEME.SPECTER_CYAN;
-        ctx.font = `${Math.round(10 * S)}px monospace`;
-        ctx.fillText(`Queue: ${sel.productionQueue.length}`, panelX + Math.round(140 * S), hpY);
-
         const firstType = sel.productionQueue[0];
         const unitDef = UNITS[firstType];
         if (unitDef && unitDef.buildTime) {
-          const totalTime = unitDef.buildTime;
           const remaining = Math.max(0, sel.productionTimer);
-          const progress = Math.min(1, Math.max(0, 1 - remaining / totalTime));
+          const progress = Math.min(1, Math.max(0, 1 - remaining / unitDef.buildTime));
 
-          const pbx = panelX + Math.round(10 * S);
-          const pby = prodStartY;
-          const pbw = panelW - Math.round(20 * S);
-          const pbh = Math.round(12 * S);
-
+          ctx.fillStyle = THEME.NEUTRAL_GREY;
+          ctx.font = `${Math.round(9 * S)}px monospace`;
+          ctx.fillText(`Producing: ${unitDef.name}`, px, afterHpY);
+          const pbY = afterHpY + Math.round(14 * S);
           ctx.fillStyle = '#050510';
-          ctx.fillRect(pbx, pby, pbw, pbh);
+          ctx.fillRect(px, pbY, pw, Math.round(10 * S));
           ctx.fillStyle = THEME.SPECTER_CYAN;
           ctx.globalAlpha = 0.7;
-          ctx.fillRect(pbx + 1, pby + 1, (pbw - 2) * progress, pbh - 2);
+          ctx.fillRect(px + 1, pbY + 1, (pw - 2) * progress, Math.round(10 * S) - 2);
           ctx.globalAlpha = 1;
-          ctx.strokeStyle = THEME.GRID;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(pbx, pby, pbw, pbh);
-
+          ctx.strokeStyle = '#334455';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(px, pbY, pw, Math.round(10 * S));
           ctx.fillStyle = THEME.SPECTER_WHITE;
           ctx.font = `${Math.round(8 * S)}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`${unitDef.name}  ${Math.floor(progress * 100)}%`, pbx + pbw / 2, pby + pbh / 2);
+          ctx.fillText(`${Math.floor(progress * 100)}%`, px + pw / 2, pbY + Math.round(5 * S));
           ctx.textAlign = 'left';
+          afterHpY = pbY + Math.round(16 * S);
+        } else {
+          ctx.fillStyle = THEME.NEUTRAL_GREY;
+          ctx.font = `${Math.round(9 * S)}px monospace`;
+          ctx.fillText(`Queue: ${sel.productionQueue.length} units`, px, afterHpY);
+          afterHpY += Math.round(18 * S);
         }
       }
 
-      this._buttons = this._buttons.filter(b => b.action !== 'produce');
-
+      // Produce buttons
       const produces = sel.def?.produces || [];
+      let afterProduceY = afterHpY;
       if (produces.length > 0) {
-        const btnAreaX = panelX + Math.round(10 * S);
-        const btnAreaW = panelW - Math.round(20 * S);
-        const labelY = prodStartY + Math.round(16 * S);
-        const btnH = Math.round(32 * S);
+        const btnH = Math.round(30 * S);
         const gap = Math.round(6 * S);
         const cols = Math.min(produces.length, 3);
-        const btnW = Math.floor((btnAreaW - (cols - 1) * gap) / cols);
+        const btnW = Math.floor((pw - (cols - 1) * gap) / cols);
 
         ctx.fillStyle = THEME.NEUTRAL_GREY;
-        ctx.font = `${Math.round(10 * S)}px monospace`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText('Produce:', btnAreaX, labelY);
+        ctx.font = `${Math.round(9 * S)}px monospace`;
+        ctx.fillText('Train:', px, afterProduceY);
 
-        const startY = labelY + Math.round(16 * S);
+        const startY = afterProduceY + Math.round(16 * S);
+        const nCols = Math.min(produces.length, 3);
+        const nRows = Math.ceil(produces.length / nCols);
         for (let i = 0; i < produces.length; i++) {
           const unitType = produces[i];
           const unitDef = UNITS[unitType];
           if (!unitDef) continue;
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          const bx = btnAreaX + col * (btnW + gap);
+          const col = i % nCols;
+          const row = Math.floor(i / nCols);
+          const bx = px + col * (btnW + gap);
           const by = startY + row * (btnH + gap);
 
           const prereqOk = this.engine && this.engine.production.canQueue(sel, unitType, this.engine.entities);
@@ -948,14 +879,88 @@ export class HUD {
           ctx.globalAlpha = 1;
 
           ctx.fillStyle = canProd ? THEME.SPECTER_WHITE : '#556677';
-          ctx.font = `${Math.round(11 * S)}px monospace`;
+          ctx.font = `${Math.round(10 * S)}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(unitDef.name, bx + btnW / 2, by + Math.round(11 * S));
-          ctx.font = `${Math.round(9 * S)}px monospace`;
+          ctx.fillText(unitDef.name, bx + btnW / 2, by + Math.round(10 * S));
+          ctx.font = `${Math.round(8 * S)}px monospace`;
           ctx.fillStyle = canProd ? THEME.NEUTRAL_GREY : '#445566';
-          ctx.fillText(`⚡${unitDef.cost?.energy||0} ◆${unitDef.cost?.matter||0}`, bx + btnW / 2, by + Math.round(25 * S));
+          ctx.fillText(`⚡${unitDef.cost?.energy||0} ◆${unitDef.cost?.matter||0}`, bx + btnW / 2, by + Math.round(22 * S));
           ctx.textAlign = 'left';
+        }
+        afterProduceY = startY + nRows * (btnH + gap);
+      }
+
+      // ===== BOTTOM SECTION: Description + Info =====
+
+      const descStartY = afterProduceY + Math.round(6 * S);
+
+      // Separator before description
+      ctx.strokeStyle = THEME.GRID;
+      ctx.globalAlpha = 0.2;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(px, descStartY);
+      ctx.lineTo(panelX + panelW - Math.round(10 * S), descStartY);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      const descY = descStartY + Math.round(10 * S);
+      const descText = def?.description || '';
+      const descFontSize = Math.round(10 * S);
+      const descLineH = Math.round(15 * S);
+      const maxDescW = pw;
+      let descLineCount = 0;
+
+      if (descText) {
+        ctx.font = `${descFontSize}px monospace`;
+        ctx.fillStyle = '#bbccdd';
+        const words = descText.split(' ');
+        let line = '';
+        for (const w of words) {
+          const test = line ? line + ' ' + w : w;
+          if (ctx.measureText(test).width > maxDescW) {
+            ctx.fillText(line, px, descY + descLineCount * descLineH);
+            descLineCount++;
+            line = w;
+          } else {
+            line = test;
+          }
+        }
+        if (line) {
+          ctx.fillText(line, px, descY + descLineCount * descLineH);
+          descLineCount++;
+        }
+      }
+
+      // Stats info
+      const infoY = descY + descLineCount * descLineH + (descLineCount > 0 ? Math.round(4 * S) : 0);
+      const infoLines = [];
+      if (def) {
+        if (def.supplyProvided > 0) infoLines.push(`▸ Provides +${def.supplyProvided} supply`);
+        if (def.powerRadius > 0) infoLines.push(`▸ Projects power field (radius ${def.powerRadius})`);
+        if (sel.type === 'nexus') infoLines.push('▸ Drop-off point · Generates +1 energy/s, +0.5 matter/s');
+        if (sel.type === 'supply_depot' || sel.type === 'refinery' || sel.type === 'energy_condenser') infoLines.push('▸ Drop-off point — workers deposit resources here');
+        if (sel.type === 'turret' && def.damage) infoLines.push(`▸ Damage: ${def.damage}  Range: ${def.range}  Speed: ${def.attackSpeed}/s`);
+        if (def.energyCost > 0) infoLines.push(`▸ Consumes ${def.energyCost} energy to operate`);
+        if (def.produces && def.produces.length > 0) {
+          const names = def.produces.map(t => UNITS[t]?.name || t).join(', ');
+          infoLines.push(`▸ Trains: ${names}`);
+        }
+        if (def.requiresAge && AGE_ORDER.indexOf(this.factionAge) < AGE_ORDER.indexOf(def.requiresAge)) {
+          const ageDef = AGES[def.requiresAge];
+          infoLines.push(`▸ Requires age: ${ageDef?.name || def.requiresAge}`);
+        }
+        if (def.requiresBuilding && def.requiresBuilding.length > 0) {
+          const names = def.requiresBuilding.map(b => BUILDINGS[b]?.name || b).join(', ');
+          infoLines.push(`▸ Requires: ${names}`);
+        }
+      }
+      if (infoLines.length > 0) {
+        ctx.fillStyle = '#88bbdd';
+        ctx.font = `${Math.round(10 * S)}px monospace`;
+        for (let i = 0; i < infoLines.length; i++) {
+          ctx.fillText(infoLines[i], px, infoY + i * Math.round(15 * S));
         }
       }
 
