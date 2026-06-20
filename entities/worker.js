@@ -84,8 +84,9 @@ export class Worker extends Entity {
       case STATES.MOVING:
         if (!this.targetNode || !this.targetNode.alive || this.targetNode.amount <= 0) {
           this.targetNode = null;
-          this.destination = null;
-          this._tryAutoRepeat();
+          if (!this.destination) {
+            this._tryAutoRepeat();
+          }
           break;
         }
         if (this.distanceTo(this.targetNode) < (this.targetNode.interactionRadius || 20)) {
@@ -258,10 +259,8 @@ export class Worker extends Entity {
     this.dropOff = null;
     this.carriedType = null;
     this.carriedAmount = 0;
-    // Don't clear assignedResourceType — worker will auto-resume gathering
-    // the same resource type after arriving at the manual destination.
-    // Call assignTo() explicitly if you want to change what they gather.
-    this.state = STATES.IDLE;
+    this._idleRetryTimer = 1.5; // delay auto-repeat after manual move
+    this.state = STATES.MOVING;
   }
 
   assignTo(node, resourceSystem, entities) {
