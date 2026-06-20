@@ -687,13 +687,7 @@ export class HUD {
         ctx.font = `${Math.round(8 * S)}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
-        const maxNameW = btnSize - 4;
-        let label = def.name;
-        if (ctx.measureText(label).width > maxNameW) {
-          while (ctx.measureText(label + '…').width > maxNameW && label.length > 0) label = label.slice(0, -1);
-          label += '…';
-        }
-        ctx.fillText(label, cx, by + btnSize - 2);
+        ctx.fillText(def.name, cx, by + btnSize - 2);
       }
 
       const costStr = `⚡${def.cost?.energy || 0} ◆${def.cost?.matter || 0}`;
@@ -804,22 +798,19 @@ export class HUD {
         }
       }
 
-      // Compute panel height — sequential y-cursor must match rendering below
-      const btnAH = Math.round(18 * S);
-      let calcY = Math.round(8 * S) + Math.round(26 * S) + Math.round(16 * S) + Math.round(4 * S) + Math.round(8 * S);
-      if (sel.productionQueue && sel.productionQueue.length > 0) calcY += Math.round(28 * S);
-      if (produces.length > 0) calcY += Math.round(16 * S) + nRows * (btnH + gap6) + Math.round(4 * S);
-      calcY += Math.round(4 * S); // gap before action buttons
-      if (sel.type === 'nexus' && this.engine && !this.advancingAge) calcY += btnAH + Math.round(4 * S);
-      if (sel.type === 'research_spire') calcY += btnAH + Math.round(4 * S);
-      if (sel.canScuttle()) calcY += btnAH + Math.round(4 * S);
-      if (descLineCount + infoLines.length > 0) {
-        calcY += Math.round(4 * S) + Math.round(8 * S);
-        if (descLineCount > 0) calcY += descLineCount * Math.round(15 * S) + Math.round(4 * S);
-        if (infoLines.length > 0) calcY += infoLines.length * Math.round(15 * S);
-      }
-      calcY += Math.round(10 * S);
-      const panelH = calcY;
+      const hasQueue = sel.productionQueue && sel.productionQueue.length > 0;
+      const queueH = hasQueue ? Math.round(28 * S) : 0;
+      const descInfoH = (descLineCount > 0 ? descLineCount * Math.round(15 * S) + Math.round(4 * S) : 0)
+        + infoLines.length * Math.round(15 * S);
+      const actionButtonsH = Math.round(46 * S); // space for 2 rows of action buttons at bottom
+
+      // Panel height = top padding + name + HP row + HP bar + gap + queue + produce buttons
+      //   + action buttons + separator + desc/info + bottom padding
+      const panelH = Math.round(8 * S) + Math.round(26 * S) + Math.round(16 * S)
+        + Math.round(4 * S) + Math.round(8 * S) + queueH + produceH
+        + actionButtonsH
+        + (descLineCount + infoLines.length > 0 ? Math.round(4 * S) + Math.round(1 * S) + Math.round(8 * S) : 0)
+        + descInfoH + Math.round(10 * S);
 
       let panelX = sp.x + bsr + 15;
       let panelY = sp.y - bsr - panelH + 30;
@@ -957,9 +948,10 @@ export class HUD {
         y += nRows * (btnH + gap6) + Math.round(4 * S);
       }
 
-      // -- Action buttons (sequential, matches height calc) --
+      // -- Action buttons row 2 (age advance, tech tree, cancel research) --
+      const btnRow2Y = y;
+      const btnAH = Math.round(18 * S);
       const btnAGap = Math.round(6 * S);
-      y += Math.round(4 * S); // gap before action buttons
 
       if (sel.type === 'nexus' && this.engine && !this.advancingAge) {
         const canAdvance = this.engine.canAdvanceAge();
@@ -967,54 +959,52 @@ export class HUD {
         const nextAgeDef = ageIdx < AGE_ORDER.length - 1 ? AGES[AGE_ORDER[ageIdx + 1]] : null;
         if (nextAgeDef) {
           const aw = Math.round(200 * S);
-          this._buttons.push({ x: px, y, w: aw, h: btnAH, action: 'advance_age' });
+          this._buttons.push({ x: px, y: btnRow2Y, w: aw, h: btnAH, action: 'advance_age' });
           ctx.fillStyle = canAdvance ? THEME.UI_GOLD + '44' : '#44556644';
           ctx.strokeStyle = canAdvance ? THEME.UI_GOLD : '#556677';
           ctx.lineWidth = 1;
-          ctx.fillRect(px, y, aw, btnAH);
-          ctx.strokeRect(px, y, aw, btnAH);
+          ctx.fillRect(px, btnRow2Y, aw, btnAH);
+          ctx.strokeRect(px, btnRow2Y, aw, btnAH);
           ctx.fillStyle = canAdvance ? THEME.UI_GOLD : '#889999';
           ctx.font = `${Math.round(9 * S)}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`\u2191 ${nextAgeDef.name}  \u26A1${nextAgeDef.cost?.energy||0} \u25C6${nextAgeDef.cost?.matter||0}`, px + aw / 2, y + btnAH / 2);
+          ctx.fillText(`\u2191 ${nextAgeDef.name}  \u26A1${nextAgeDef.cost?.energy||0} \u25C6${nextAgeDef.cost?.matter||0}`, px + aw / 2, btnRow2Y + btnAH / 2);
           ctx.textAlign = 'left';
-          y += btnAH + Math.round(4 * S);
         }
       }
 
       if (sel.type === 'research_spire') {
         const rw = Math.round(160 * S);
-        this._buttons.push({ x: px, y, w: rw, h: btnAH, action: 'research' });
+        this._buttons.push({ x: px, y: btnRow2Y, w: rw, h: btnAH, action: 'research' });
         ctx.fillStyle = this._showTechTree ? THEME.ENEMY_RED + '44' : THEME.SPECTER_PURPLE + '44';
         ctx.strokeStyle = this._showTechTree ? THEME.ENEMY_RED : THEME.SPECTER_PURPLE;
         ctx.lineWidth = 1;
-        ctx.fillRect(px, y, rw, btnAH);
-        ctx.strokeRect(px, y, rw, btnAH);
+        ctx.fillRect(px, btnRow2Y, rw, btnAH);
+        ctx.strokeRect(px, btnRow2Y, rw, btnAH);
         ctx.fillStyle = THEME.SPECTER_PURPLE;
         ctx.font = `${Math.round(9 * S)}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(this._showTechTree ? '\u2715 Close Tech' : '\uD83D\uDD2C Tech Tree', px + rw / 2, y + btnAH / 2);
+        ctx.fillText(this._showTechTree ? '\u2715 Close Tech' : '\uD83D\uDD2C Tech Tree', px + rw / 2, btnRow2Y + btnAH / 2);
         ctx.textAlign = 'left';
 
         if (this.research && this.research.queue.length > 0) {
           const qx = px + rw + btnAGap;
           const qw = Math.round(100 * S);
-          this._buttons.push({ x: qx, y, w: qw, h: btnAH, action: 'cancel_research' });
+          this._buttons.push({ x: qx, y: btnRow2Y, w: qw, h: btnAH, action: 'cancel_research' });
           ctx.fillStyle = THEME.ENEMY_RED + '44';
           ctx.strokeStyle = THEME.ENEMY_RED;
           ctx.lineWidth = 1;
-          ctx.fillRect(qx, y, qw, btnAH);
-          ctx.strokeRect(qx, y, qw, btnAH);
+          ctx.fillRect(qx, btnRow2Y, qw, btnAH);
+          ctx.strokeRect(qx, btnRow2Y, qw, btnAH);
           ctx.fillStyle = THEME.ENEMY_RED;
           ctx.font = `${Math.round(9 * S)}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText('\u2715 Cancel', qx + qw / 2, y + btnAH / 2);
+          ctx.fillText('\u2715 Cancel', qx + qw / 2, btnRow2Y + btnAH / 2);
           ctx.textAlign = 'left';
         }
-        y += btnAH + Math.round(4 * S);
       }
 
       // Upgrade button (top-right corner)
@@ -1056,23 +1046,26 @@ export class HUD {
         }
       }
 
-      // -- Scuttle --
+      // -- Row 0 action buttons (scuttle / settings) --
+      const btnRowY = btnRow2Y + btnAH + Math.round(4 * S);
       if (sel.canScuttle()) {
         const scuttleW = Math.round(120 * S);
-        this._buttons.push({ x: px, y, w: scuttleW, h: btnAH, action: 'scuttle' });
+        this._buttons.push({ x: px, y: btnRowY, w: scuttleW, h: btnAH, action: 'scuttle' });
         ctx.fillStyle = THEME.ENEMY_RED + '44';
         ctx.strokeStyle = THEME.ENEMY_RED;
         ctx.lineWidth = 1;
-        ctx.fillRect(px, y, scuttleW, btnAH);
-        ctx.strokeRect(px, y, scuttleW, btnAH);
+        ctx.fillRect(px, btnRowY, scuttleW, btnAH);
+        ctx.strokeRect(px, btnRowY, scuttleW, btnAH);
         ctx.fillStyle = THEME.ENEMY_RED;
         ctx.font = `${Math.round(9 * S)}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('\u2715 Scuttle (50% refund)', px + scuttleW / 2, y + btnAH / 2);
+        ctx.fillText('\u2715 Scuttle (50% refund)', px + scuttleW / 2, btnRowY + btnAH / 2);
         ctx.textAlign = 'left';
-        y += btnAH + Math.round(4 * S);
       }
+
+      // Advance y past action buttons
+      y = btnRowY + btnAH;
 
       // -- Description + Info section --
       if (descLineCount + infoLines.length > 0) {
@@ -1693,19 +1686,14 @@ export class HUD {
 
     const mx = this.mouseX;
     const my = this.mouseY;
+    const hx = mx + 16;
+    const hy = my + 16;
 
     ctx.font = '11px monospace';
     const metrics = ctx.measureText(text);
     const pad = 6;
     const bw = metrics.width + pad * 2;
     const bh = 18;
-
-    let hx = mx + 16;
-    let hy = my + 16;
-    const cw = this.canvas.width;
-    const ch = this.canvas.height;
-    if (hx + bw > cw - 4) hx = mx - bw - 8;
-    if (hy + bh > ch - 4) hy = my - bh - 8;
 
     ctx.fillStyle = '#03020acc';
     ctx.fillRect(hx, hy, bw, bh);
@@ -1872,6 +1860,8 @@ export class HUD {
     const lines = text.split('\n');
     const mx = this.mouseX;
     const my = this.mouseY;
+    const hx = mx + 12;
+    const hy = my + 12;
     const lineH = 16;
     const pad = 6;
     ctx.font = '11px monospace';
@@ -1882,12 +1872,6 @@ export class HUD {
     }
     const bw = maxW + pad * 2;
     const bh = lines.length * lineH + pad;
-    let hx = mx + 12;
-    let hy = my + 12;
-    const cw = this.canvas.width;
-    const ch = this.canvas.height;
-    if (hx + bw > cw - 4) hx = mx - bw - 8;
-    if (hy + bh > ch - 4) hy = my - bh - 8;
     ctx.fillStyle = '#03020acc';
     ctx.fillRect(hx, hy, bw, bh);
     ctx.strokeStyle = THEME.SPECTER_CYAN;
