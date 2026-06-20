@@ -741,7 +741,7 @@ export class HUD {
     if (sel instanceof Building) {
       const S = 1.5;
       const panelW = Math.round(300 * S);
-      const panelH = Math.round(190 * S);
+      const panelH = Math.round(250 * S);
 
       let panelX = sp.x + bsr + 15;
       let panelY = sp.y - bsr - panelH + 30;
@@ -768,15 +768,93 @@ export class HUD {
       ctx.textBaseline = 'top';
       ctx.fillText(name, panelX + Math.round(10 * S), panelY + Math.round(8 * S));
 
+      // Description
+      let desc = sel.def?.description || '';
+      if (desc) {
+        ctx.fillStyle = '#8899aa';
+        ctx.font = `${Math.round(9 * S)}px monospace`;
+        const maxDescW = panelW - Math.round(40 * S);
+        const descX = panelX + Math.round(10 * S);
+        const descY = panelY + Math.round(30 * S);
+        const descLines = [];
+        const words = desc.split(' ');
+        let line = '';
+        for (const w of words) {
+          const test = line ? line + ' ' + w : w;
+          if (ctx.measureText(test).width > maxDescW) {
+            descLines.push(line);
+            line = w;
+          } else {
+            line = test;
+          }
+        }
+        if (line) descLines.push(line);
+        for (let i = 0; i < descLines.length; i++) {
+          ctx.fillText(descLines[i], descX, descY + i * Math.round(12 * S));
+        }
+      }
+
+      // Building info line
+      const infoY = panelY + Math.round(desc ? (30 + desc.split(' ').length > 5 ? 36 : 24) : 30 * S);
+      const infoLines = [];
+      const def = sel.def;
+      if (def) {
+        if (def.supplyProvided > 0) infoLines.push(`+${def.supplyProvided} supply`);
+        if (def.powerRadius > 0) infoLines.push(`Power radius: ${def.powerRadius}`);
+        if (sel.type === 'nexus') infoLines.push('Drop-off point · Generates +1 energy/s, +0.5 matter/s');
+        if (sel.type === 'supply_depot' || sel.type === 'refinery' || sel.type === 'energy_condenser') infoLines.push('Drop-off point for workers');
+        if (sel.type === 'turret' && def.damage) infoLines.push(`Damage: ${def.damage}  Range: ${def.range}  Speed: ${def.attackSpeed}/s`);
+        if (def.energyCost > 0) infoLines.push(`Consumes ${def.energyCost} energy`);
+        if (def.produces && def.produces.length > 0) {
+          const names = def.produces.map(t => UNITS[t]?.name || t).join(', ');
+          infoLines.push(`Produces: ${names}`);
+        }
+        if (def.requiresAge && AGE_ORDER.indexOf(this.factionAge) < AGE_ORDER.indexOf(def.requiresAge)) {
+          const ageDef = AGES[def.requiresAge];
+          infoLines.push(`Requires age: ${ageDef?.name || def.requiresAge}`);
+        }
+        if (def.requiresBuilding && def.requiresBuilding.length > 0) {
+          const names = def.requiresBuilding.map(b => BUILDINGS[b]?.name || b).join(', ');
+          infoLines.push(`Requires: ${names}`);
+        }
+      }
+      if (infoLines.length > 0) {
+        ctx.fillStyle = '#7799bb';
+        ctx.font = `${Math.round(9 * S)}px monospace`;
+        for (let i = 0; i < infoLines.length; i++) {
+          ctx.fillText(infoLines[i], panelX + Math.round(10 * S), infoY + i * Math.round(13 * S));
+        }
+      }
+
+      // Separator line before HP
+      const sepY = infoY + infoLines.length * Math.round(13 * S) + Math.round(4 * S);
+      ctx.strokeStyle = THEME.GRID;
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(panelX + Math.round(10 * S), sepY);
+      ctx.lineTo(panelX + panelW - Math.round(10 * S), sepY);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      const hpY = sepY + Math.round(6 * S);
       const hp = `HP: ${Math.ceil(sel.hp)}/${sel.maxHp}`;
       ctx.fillStyle = THEME.NEUTRAL_GREY;
       ctx.font = `${Math.round(11 * S)}px monospace`;
-      ctx.fillText(hp, panelX + Math.round(10 * S), panelY + Math.round(28 * S));
+      ctx.fillText(hp, panelX + Math.round(10 * S), hpY);
+
+      if (sel.type !== 'nexus' && sel.type !== 'pylon') {
+        const powerColor = sel.powered ? THEME.SPECTER_CYAN : THEME.ENEMY_RED;
+        const powerText = sel.powered ? '⚡ Powered' : '⛔ Unpowered';
+        ctx.fillStyle = powerColor;
+        ctx.font = `${Math.round(10 * S)}px monospace`;
+        ctx.fillText(powerText, panelX + panelW - Math.round(90 * S), hpY);
+      }
 
       const hpPct = sel.hp / sel.maxHp;
       const hpColor = hpPct > 0.5 ? THEME.SPECTER_CYAN : (hpPct > 0.25 ? THEME.UI_GOLD : THEME.ENEMY_RED);
       const hpBarX = panelX + Math.round(10 * S);
-      const hpBarY = panelY + Math.round(42 * S);
+      const hpBarY = hpY + Math.round(14 * S);
       const hpBarW = panelW - Math.round(20 * S);
       const hpBarH = Math.round(4 * S);
       ctx.fillStyle = '#33111166';
@@ -784,18 +862,12 @@ export class HUD {
       ctx.fillStyle = hpColor;
       ctx.fillRect(hpBarX, hpBarY, hpBarW * hpPct, hpBarH);
 
-      if (sel.type !== 'nexus' && sel.type !== 'pylon') {
-        const powerColor = sel.powered ? THEME.SPECTER_CYAN : THEME.ENEMY_RED;
-        const powerText = sel.powered ? '⚡ Powered' : '⛔ Unpowered';
-        ctx.fillStyle = powerColor;
-        ctx.font = `${Math.round(10 * S)}px monospace`;
-        ctx.fillText(powerText, panelX + panelW - Math.round(90 * S), panelY + Math.round(28 * S));
-      }
+      const prodStartY = hpBarY + Math.round(10 * S);
 
       if (sel.productionQueue && sel.productionQueue.length > 0) {
         ctx.fillStyle = THEME.SPECTER_CYAN;
         ctx.font = `${Math.round(10 * S)}px monospace`;
-        ctx.fillText(`Queue: ${sel.productionQueue.length}`, panelX + Math.round(140 * S), panelY + Math.round(28 * S));
+        ctx.fillText(`Queue: ${sel.productionQueue.length}`, panelX + Math.round(140 * S), hpY);
 
         const firstType = sel.productionQueue[0];
         const unitDef = UNITS[firstType];
@@ -805,7 +877,7 @@ export class HUD {
           const progress = Math.min(1, Math.max(0, 1 - remaining / totalTime));
 
           const pbx = panelX + Math.round(10 * S);
-          const pby = panelY + Math.round(50 * S);
+          const pby = prodStartY;
           const pbw = panelW - Math.round(20 * S);
           const pbh = Math.round(12 * S);
 
@@ -834,7 +906,7 @@ export class HUD {
       if (produces.length > 0) {
         const btnAreaX = panelX + Math.round(10 * S);
         const btnAreaW = panelW - Math.round(20 * S);
-        const labelY = panelY + Math.round(68 * S);
+        const labelY = prodStartY + Math.round(16 * S);
         const btnH = Math.round(32 * S);
         const gap = Math.round(6 * S);
         const cols = Math.min(produces.length, 3);
@@ -1563,11 +1635,19 @@ export class HUD {
   drawTooltip(ctx) {
     const e = this.hoveredEntity;
     let text = e.def?.name || e.type || 'Unknown';
+    if (e.resourceType && e.amount !== undefined) {
+      const icon = e.resourceType === 'energy' ? '⚡' : '◆';
+      text += `  ${icon} ${Math.floor(e.amount)}/${e.maxAmount}`;
+    }
     if (e.state) {
       text += `  [${e.state.toUpperCase()}]`;
     }
     if (e instanceof Worker && e.carriedAmount > 0) {
-      text += ` ${e.carriedAmount}/${e.carryCapacity}`;
+      const icon = e.carriedType === 'energy' ? '⚡' : '◆';
+      text += `  ${icon}${Math.floor(e.carriedAmount)}/${e.carryCapacity}`;
+    }
+    if (e instanceof Builder && e.buildQueue && e.buildQueue.length > 0) {
+      text += `  [QUEUE: ${e.buildQueue.length}]`;
     }
 
     const mx = this.mouseX;
