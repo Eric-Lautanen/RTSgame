@@ -756,8 +756,8 @@ export class HUD {
       const descText = def?.description || '';
       let descLineCount = 0;
       if (descText) {
-        const testSize = Math.round(10 * S);
-        const testLineH = Math.round(15 * S);
+        const testSize = Math.round(9 * S);
+        const testLineH = Math.round(13 * S);
         const maxW = panelW - Math.round(20 * S);
         ctx.font = `${testSize}px monospace`;
         const words = descText.split(' ');
@@ -800,8 +800,8 @@ export class HUD {
 
       const hasQueue = sel.productionQueue && sel.productionQueue.length > 0;
       const queueH = hasQueue ? Math.round(28 * S) : 0;
-      const descInfoH = (descLineCount > 0 ? descLineCount * Math.round(15 * S) + Math.round(4 * S) : 0)
-        + infoLines.length * Math.round(15 * S);
+      const descInfoH = (descLineCount > 0 ? descLineCount * Math.round(13 * S) + Math.round(4 * S) : 0)
+        + infoLines.length * Math.round(13 * S);
       const actionButtonsH = Math.round(46 * S); // space for 2 rows of action buttons at bottom
 
       // Panel height = top padding + name + HP row + HP bar + gap + queue + produce buttons
@@ -1081,7 +1081,7 @@ export class HUD {
         y += Math.round(8 * S);
 
         if (descLineCount > 0) {
-          ctx.font = `${Math.round(10 * S)}px monospace`;
+          ctx.font = `${Math.round(9 * S)}px monospace`;
           ctx.fillStyle = '#bbccdd';
           const words = descText.split(' ');
           let line = '';
@@ -1089,7 +1089,7 @@ export class HUD {
           for (const w of words) {
             const test = line ? line + ' ' + w : w;
             if (ctx.measureText(test).width > pw) {
-              ctx.fillText(line, px, y + lineIdx * Math.round(15 * S));
+              ctx.fillText(line, px, y + lineIdx * Math.round(13 * S));
               lineIdx++;
               line = w;
             } else {
@@ -1097,18 +1097,18 @@ export class HUD {
             }
           }
           if (line) {
-            ctx.fillText(line, px, y + lineIdx * Math.round(15 * S));
+            ctx.fillText(line, px, y + lineIdx * Math.round(13 * S));
           }
-          y += descLineCount * Math.round(15 * S) + Math.round(4 * S);
+          y += descLineCount * Math.round(13 * S) + Math.round(4 * S);
         }
 
         if (infoLines.length > 0) {
           ctx.fillStyle = '#88bbdd';
-          ctx.font = `${Math.round(10 * S)}px monospace`;
+          ctx.font = `${Math.round(9 * S)}px monospace`;
           for (let i = 0; i < infoLines.length; i++) {
-            ctx.fillText(infoLines[i], px, y + i * Math.round(15 * S));
+            ctx.fillText(infoLines[i], px, y + i * Math.round(13 * S));
           }
-          y += infoLines.length * Math.round(15 * S);
+          y += infoLines.length * Math.round(13 * S);
         }
       }
 
