@@ -268,11 +268,9 @@ export class Builder extends Entity {
   }
 
   moveTo(x, y) {
-    if (!this.destination) this.destination = { x, y };
-    else { this.destination.x = x; this.destination.y = y; }
+    this.destination = { x, y };
     this.buildTarget = null;
     this.buildQueue = [];
-    this.state = STATES.IDLE;
   }
 
   render(renderer, ctx) {

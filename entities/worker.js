@@ -252,14 +252,12 @@ export class Worker extends Entity {
   }
 
   moveTo(x, y) {
-    if (!this.destination) this.destination = { x, y };
-    else { this.destination.x = x; this.destination.y = y; }
+    this.destination = { x, y };
     this.targetNode = null;
     this._assignedNode = null;
     this.dropOff = null;
     this.carriedType = null;
     this.carriedAmount = 0;
-    this._idleRetryTimer = 1.5; // delay auto-repeat after manual move
     this.state = STATES.MOVING;
   }
 
