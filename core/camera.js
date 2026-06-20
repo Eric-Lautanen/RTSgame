@@ -13,8 +13,8 @@ export class Camera {
     this.maxZoom = 3;
     this.panSpeed = 600;
     this.edgeScrollMargin = 40;
-    this.zoomSmooth = 0.1;
-    this.panSmooth = 0.08;
+    this.zoomSmooth = 0.15;
+    this.panSmooth = 0.12;
   }
 
   worldToScreen(wx, wy) {

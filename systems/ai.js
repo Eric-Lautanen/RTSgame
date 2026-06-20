@@ -77,6 +77,8 @@ export class AISystem {
     if (!this.resourceSystem) {
       this.resourceSystem = new ResourceSystem();
       this.resourceSystem.resources = { energy: 500, matter: 300 };
+      this.resourceSystem.addPassiveIncome('energy', 1);
+      this.resourceSystem.addPassiveIncome('matter', 0.5);
     }
     this.buildQueue = [];
     this.prodQueue = [];

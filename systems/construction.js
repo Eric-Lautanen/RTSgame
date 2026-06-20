@@ -3,7 +3,6 @@ import { THEME } from '../data/theme.js';
 import { TILE_SIZE, MAP_WIDTH, MAP_HEIGHT } from '../data/world.js';
 import { Foundation } from '../entities/foundation.js';
 import { Building } from '../entities/building.js';
-import { Worker } from '../entities/worker.js';
 
 const BUILDABLE_RANGE = 500;
 
@@ -182,17 +181,9 @@ export class ConstructionSystem {
     if (engine.audio) engine.audio.buildComplete();
 
     if (foundation.buildingType === 'refinery') {
-      for (const e of engine.entities.values()) {
-        if (e.alive && e instanceof Worker && e.faction === foundation.faction) {
-          e.carryCapacity += 2;
-        }
-      }
+      engine.hud?.addEvent('Refinery built — workers can now deposit here');
     } else if (foundation.buildingType === 'energy_condenser') {
-      for (const e of engine.entities.values()) {
-        if (e.alive && e.type === 'turret' && e.faction === foundation.faction) {
-          e.range = Math.round(e.range * 1.05);
-        }
-      }
+      engine.hud?.addEvent('Energy Condenser built — workers can now deposit here');
     }
   }
 

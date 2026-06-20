@@ -120,14 +120,14 @@ export class HUD {
       return;
     }
 
-    const lerpE = (this.resources.energy - this._displayEnergy) * 0.08;
-    const lerpM = (this.resources.matter - this._displayMatter) * 0.08;
-    if (Math.abs(lerpE) < 0.5) this._displayEnergy = this.resources.energy;
+    const targetE = Math.max(0, this.resources.energy);
+    const targetM = Math.max(0, this.resources.matter);
+    const lerpE = (targetE - this._displayEnergy) * 0.12;
+    const lerpM = (targetM - this._displayMatter) * 0.12;
+    if (Math.abs(lerpE) < 0.3) this._displayEnergy = targetE;
     else this._displayEnergy += lerpE;
-    if (Math.abs(lerpM) < 0.5) this._displayMatter = this.resources.matter;
+    if (Math.abs(lerpM) < 0.3) this._displayMatter = targetM;
     else this._displayMatter += lerpM;
-    if (this._displayEnergy < 0) this._displayEnergy = this.resources.energy;
-    if (this._displayMatter < 0) this._displayMatter = this.resources.matter;
 
     if (this._attackAlertTimer > 0) this._attackAlertTimer--;
 
@@ -1608,6 +1608,7 @@ export class HUD {
       const def = BUILDINGS[btn.buildingType];
       if (!def) return null;
       const lines = [def.name];
+      if (def.description) lines.push(def.description);
       if (!this._isBuildingUnlocked(btn.buildingType)) {
         if (def.requiresAge) {
           const ageDef = AGES[def.requiresAge];
@@ -1623,7 +1624,7 @@ export class HUD {
         lines.push('Insufficient resources');
         return lines.join('\n');
       }
-      return null;
+      return lines.join('\n');
     }
     if (btn.action === 'produce') {
       const def = UNITS[btn.unitType];

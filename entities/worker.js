@@ -55,7 +55,7 @@ export class Worker extends Entity {
     for (const e of entities.values()) {
       if (!e.alive || e.faction !== this.faction || e.renderLayer !== 'buildings') continue;
       const type = e.type;
-      if (type === 'nexus' || type === 'supply_depot') {
+      if (type === 'nexus' || type === 'supply_depot' || type === 'refinery' || type === 'energy_condenser') {
         const dx = e.x - this.x;
         const dy = e.y - this.y;
         const d = dx * dx + dy * dy;
@@ -74,9 +74,9 @@ export class Worker extends Entity {
     switch (this.state) {
       case STATES.IDLE:
         if (!this._entities || !this._resourceSystem) break;
-        this._idleRetryTimer -= dt;
-        if (this._idleRetryTimer <= 0) {
-          this._idleRetryTimer = 0.5 + Math.random() * 0.5;
+          this._idleRetryTimer -= dt;
+          if (this._idleRetryTimer <= 0) {
+            this._idleRetryTimer = 0.15 + Math.random() * 0.15;
           this._tryAutoRepeat();
         }
         break;

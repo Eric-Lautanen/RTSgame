@@ -21,7 +21,7 @@ export const AGES = {
     bonuses: [{ type: 'unit_hp', value: 1.1 }],
     unitCaps: { shade: 15, wraith: 8, specter: 6 },
     enemyUnitCaps: { shade: 15, void_scout: 6, entropy_soldier: 5 },
-    description: 'Combat expands. Barracks, turrets, and military units become available.',
+    description: 'Combat expands. Turrets, better stats, and upgrades become available.',
   },
   quantum_reach: {
     name: 'Quantum Reach',
@@ -32,7 +32,7 @@ export const AGES = {
     bonuses: [{ type: 'unit_damage', value: 1.15 }],
     unitCaps: { shade: 20, wraith: 10, specter: 10, phantom: 6 },
     enemyUnitCaps: { shade: 20, void_scout: 8, entropy_soldier: 8, null_mage: 4 },
-    description: 'Advanced technology. Ranged units, research, and powerful upgrades.',
+    description: 'Advanced technology. Phantoms, powerful upgrades, and more.',
   },
   eternity_singularity: {
     name: 'Eternity Singularity',

@@ -123,6 +123,8 @@ function spawnResourceClusters(cx, cy) {
 const nexus = new Building({ type: 'nexus', x: playerSpawn.x, y: playerSpawn.y, faction: 'player' });
 nexus.setResourceSystem(engine.resources);
 engine.spawnEntity(nexus);
+engine.resources.addPassiveIncome('energy', 1);
+engine.resources.addPassiveIncome('matter', 0.5);
 camera.x = playerSpawn.x; camera.targetX = playerSpawn.x;
 camera.y = playerSpawn.y; camera.targetY = playerSpawn.y;
 
@@ -130,6 +132,8 @@ const builder = new Builder({ type: 'builder', x: playerSpawn.x - 120, y: player
 builder._entities = engine.entities;
 builder._resourceSystem = engine.resources;
 const worker = new Worker({ type: 'shade', x: playerSpawn.x - 80, y: playerSpawn.y + 60, faction: 'player' });
+worker._entities = engine.entities;
+worker._resourceSystem = engine.resources;
 const wraith = new Unit({ type: 'wraith', x: playerSpawn.x + 80, y: playerSpawn.y - 60, faction: 'player' });
 engine.spawnEntity(builder);
 engine.spawnEntity(worker);

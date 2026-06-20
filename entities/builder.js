@@ -158,12 +158,12 @@ export class Builder extends Entity {
 
     if (this._retreating) {
       this._retreating = false;
-      this.buildTarget = this._savedBuildTarget;
-      this.buildQueue = this._savedBuildQueue || [];
+      this.buildQueue = (this._savedBuildQueue || []).filter(f => f && f.alive);
+      this.buildTarget = (this._savedBuildTarget && this._savedBuildTarget.alive) ? this._savedBuildTarget : null;
       this._savedBuildTarget = null;
       this._savedBuildQueue = [];
       this.destination = null;
-      if (this.buildTarget && this.buildTarget.alive) {
+      if (this.buildTarget) {
         this.state = this._savedState || STATES.IDLE;
       } else {
         this._startNextInQueue();

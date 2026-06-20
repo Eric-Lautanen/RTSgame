@@ -21,6 +21,8 @@ export class Input {
     this._longPressed = false;
     this._longPressTimer = null;
     this._canLock = false;
+    this._lockClickX = null;
+    this._lockClickY = null;
 
     this._onKeyDown = (e) => {
       this.keys.add(e.key.toLowerCase());
@@ -80,6 +82,8 @@ export class Input {
         this.isDragging = Math.abs(dx) > 5 || Math.abs(dy) > 5;
         if (!this.isDragging && btn === 0) {
           this.events.push({ type: 'select', screenX: this.mouseScreenX, screenY: this.mouseScreenY, time: performance.now() });
+        } else if (!this.isDragging && btn === 2) {
+          this.events.push({ type: 'rightclick', screenX: this.mouseScreenX, screenY: this.mouseScreenY, time: performance.now() });
         } else if (this.selectionBox) {
           this.events.push({ type: 'boxselect', x1: this.selectionBox.x1, y1: this.selectionBox.y1, x2: this.selectionBox.x2, y2: this.selectionBox.y2 });
         }
@@ -90,8 +94,10 @@ export class Input {
     this._onWheel = (e) => { if (!this.isPointerLocked) return; this.scrollDelta += Math.sign(e.deltaY); e.preventDefault(); };
     this._onContextMenu = (e) => { e.preventDefault(); };
 
-    this._onCanvasClick = () => {
+    this._onCanvasClick = (e) => {
       if (!this.isPointerLocked && this._canLock) {
+        this._lockClickX = e.clientX;
+        this._lockClickY = e.clientY;
         this.canvas.requestPointerLock();
       }
     };
@@ -99,9 +105,15 @@ export class Input {
       this.isPointerLocked = document.pointerLockElement === this.canvas;
       document.body.classList.toggle('pointer-locked', this.isPointerLocked);
       if (this.isPointerLocked) {
-        // Seed position at center so cursor starts visible
-        this.mouseScreenX = this.canvas.width / 2;
-        this.mouseScreenY = this.canvas.height / 2;
+        if (this._lockClickX != null) {
+          this.mouseScreenX = this._lockClickX;
+          this.mouseScreenY = this._lockClickY;
+          this._lockClickX = null;
+          this._lockClickY = null;
+        } else {
+          this.mouseScreenX = this.canvas.width / 2;
+          this.mouseScreenY = this.canvas.height / 2;
+        }
       }
     };
 

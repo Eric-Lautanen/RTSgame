@@ -524,6 +524,51 @@ export class Engine {
           this.selection.clearSelection();
           if (this.audio) this.audio.selectNone();
         }
+      } else if (evt.type === 'rightclick') {
+        if (this.hud && this.hud._showTechTree) { this.hud._showTechTree = false; }
+        const pos = this.camera.screenToWorld(evt.screenX, evt.screenY);
+        if (this.selection.count() > 0) {
+          let clickedEnemy = null;
+          let enemyDist = Infinity;
+          for (const entity of this.entities.values()) {
+            if (!entity.alive || entity.faction === 'player' || entity.faction === 'neutral') continue;
+            const dx = entity.x - pos.x;
+            const dy = entity.y - pos.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const clickRadius = Math.max(entity.interactionRadius || 0, 25);
+            if (dist < clickRadius && dist < enemyDist) {
+              enemyDist = dist;
+              clickedEnemy = entity;
+            }
+          }
+          if (clickedEnemy) {
+            let attacked = false;
+            for (const entity of this.selection.getSelected()) {
+              if (entity.damage > 0) {
+                entity.target = clickedEnemy;
+                entity.attackMove = false;
+                entity.holdPosition = false;
+                entity.destination = null;
+                entity._powerGuardTarget = false;
+                entity._priorityTargetType = clickedEnemy.type;
+                if (!attacked) { attacked = true; }
+              }
+            }
+            if (attacked && this.audio) this.audio.attack();
+          } else {
+            const isAttackMove = this.input.keys.has('a');
+            for (const entity of this.selection.getSelected()) {
+              entity.target = null;
+              entity.holdPosition = false;
+              entity.attackMove = isAttackMove;
+              entity._powerGuardTarget = false;
+              entity._priorityTargetType = null;
+              entity.moveTo(pos.x, pos.y);
+            }
+            this.moveMarkers.push({ x: pos.x, y: pos.y, time: performance.now() });
+            if (this.audio) this.audio.move();
+          }
+        }
       } else if (evt.type === 'boxselect') {
         const add = this.input.keys.has('shift');
         this._handleBoxSelect(evt, add);
@@ -563,7 +608,7 @@ export class Engine {
 
   _findResourceNodeAt(x, y) {
     let nearest = null;
-    let minDist = 45;
+    let minDist = 64;
     for (const entity of this.entities.values()) {
       if (!entity.alive) continue;
       if (!(entity instanceof ResourceNode)) continue;
@@ -623,11 +668,12 @@ export class Engine {
           }
           } else if (key === 'h' && now - (this._shortcutCooldown.h || 0) > 300) {
           this._shortcutCooldown.h = now;
-          for (const entity of this.selection.getSelected()) {
-            entity.holdPosition = !entity.holdPosition;
-            entity._powerGuardTarget = false;
-            entity._priorityTargetType = null;
-            if (entity.holdPosition) entity.destination = null;
+          for (const entity of this.entities.values()) {
+            if (entity.alive && entity.type === 'nexus' && entity.faction === 'player') {
+              this.camera.targetX = entity.x;
+              this.camera.targetY = entity.y;
+              break;
+            }
           }
         } else if (key === 's' && now - (this._shortcutCooldown.s || 0) > 300) {
           this._shortcutCooldown.s = now;
