@@ -1,5 +1,7 @@
 # Spectral RTS
 
+[![Play Demo](https://img.shields.io/badge/Play-Demo-8A2BE2)](https://eric-lautanen.github.io/RTSgame/)
+
 A browser-based real-time strategy game built with vanilla JavaScript and Canvas 2D. Set in a void-themed spectral universe with particle effects, fog of war, tech trees, and AI opponents.
 
 ## Features
