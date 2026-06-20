@@ -38,9 +38,13 @@ export class ConstructionSystem {
     return false;
   }
 
-  updateAllPower(entities) {
+  updateAllPower(entities, pendingAdd = []) {
     const allSources = [];
     for (const entity of entities.values()) {
+      if (!entity.alive) continue;
+      if (entity.powerRadius > 0) allSources.push(entity);
+    }
+    for (const entity of pendingAdd) {
       if (!entity.alive) continue;
       if (entity.powerRadius > 0) allSources.push(entity);
     }

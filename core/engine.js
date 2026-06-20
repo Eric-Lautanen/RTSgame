@@ -271,7 +271,7 @@ export class Engine {
     this.age += dt;
     this.camera.update(dt, this.input, this.hud);
     this._detectUnderAttack();
-    this.construction.updateAllPower(this.entities);
+    this.construction.updateAllPower(this.entities, this.pendingAdd);
     this.production.productionMultiplier = this.research.getStatMultiplier('production');
     this.production.factionAge = this.factionAge;
     this.production.advancingAge = this.advancingAge;
@@ -288,6 +288,7 @@ export class Engine {
     this.processInput();
     this.processKeys();
     this.processFoundations();
+    this.construction.updateAllPower(this.entities, this.pendingAdd);
   }
 
   processAgeAdvance(dt) {
