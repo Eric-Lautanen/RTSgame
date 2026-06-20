@@ -761,75 +761,80 @@ export class HUD {
       ctx.strokeRect(panelX, panelY, panelW, panelH);
       ctx.globalAlpha = 1;
 
-      const name = sel.def?.name || sel.type || 'Unknown';
+      const def = sel.def;
+      const name = def?.name || sel.type || 'Unknown';
       ctx.fillStyle = THEME.SPECTER_WHITE;
       ctx.font = `bold ${Math.round(14 * S)}px monospace`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(name, panelX + Math.round(10 * S), panelY + Math.round(8 * S));
+      const nameY = panelY + Math.round(8 * S);
+      ctx.fillText(name, panelX + Math.round(10 * S), nameY);
 
-      // Description
-      let desc = sel.def?.description || '';
-      if (desc) {
-        ctx.fillStyle = '#8899aa';
+      // Description — word-wrapped below name
+      const descX = panelX + Math.round(10 * S);
+      const descY = nameY + Math.round(22 * S);
+      const descText = def?.description || '';
+      const descLineH = Math.round(13 * S);
+      const maxDescW = panelW - Math.round(40 * S);
+      let descLineCount = 0;
+      if (descText) {
         ctx.font = `${Math.round(9 * S)}px monospace`;
-        const maxDescW = panelW - Math.round(40 * S);
-        const descX = panelX + Math.round(10 * S);
-        const descY = panelY + Math.round(30 * S);
-        const descLines = [];
-        const words = desc.split(' ');
+        ctx.fillStyle = '#99aabb';
+        const words = descText.split(' ');
         let line = '';
         for (const w of words) {
           const test = line ? line + ' ' + w : w;
           if (ctx.measureText(test).width > maxDescW) {
-            descLines.push(line);
+            ctx.fillText(line, descX, descY + descLineCount * descLineH);
+            descLineCount++;
             line = w;
           } else {
             line = test;
           }
         }
-        if (line) descLines.push(line);
-        for (let i = 0; i < descLines.length; i++) {
-          ctx.fillText(descLines[i], descX, descY + i * Math.round(12 * S));
+        if (line) {
+          ctx.fillText(line, descX, descY + descLineCount * descLineH);
+          descLineCount++;
         }
       }
+      const descEndY = descY + descLineCount * descLineH;
 
-      // Building info line
-      const infoY = panelY + Math.round(desc ? (30 + desc.split(' ').length > 5 ? 36 : 24) : 30 * S);
+      // Building stats / info
+      const infoX = descX;
+      let infoY = descLineCount > 0 ? descEndY + Math.round(6 * S) : descY;
       const infoLines = [];
-      const def = sel.def;
       if (def) {
-        if (def.supplyProvided > 0) infoLines.push(`+${def.supplyProvided} supply`);
-        if (def.powerRadius > 0) infoLines.push(`Power radius: ${def.powerRadius}`);
-        if (sel.type === 'nexus') infoLines.push('Drop-off point · Generates +1 energy/s, +0.5 matter/s');
-        if (sel.type === 'supply_depot' || sel.type === 'refinery' || sel.type === 'energy_condenser') infoLines.push('Drop-off point for workers');
-        if (sel.type === 'turret' && def.damage) infoLines.push(`Damage: ${def.damage}  Range: ${def.range}  Speed: ${def.attackSpeed}/s`);
-        if (def.energyCost > 0) infoLines.push(`Consumes ${def.energyCost} energy`);
+        if (def.supplyProvided > 0) infoLines.push(`▸ +${def.supplyProvided} supply`);
+        if (def.powerRadius > 0) infoLines.push(`▸ Power field radius: ${def.powerRadius}`);
+        if (sel.type === 'nexus') infoLines.push('▸ Drop-off point · Generates +1 energy/s, +0.5 matter/s');
+        if (sel.type === 'supply_depot' || sel.type === 'refinery' || sel.type === 'energy_condenser') infoLines.push('▸ Drop-off point — workers deposit resources here');
+        if (sel.type === 'turret' && def.damage) infoLines.push(`▸ Damage: ${def.damage}  Range: ${def.range}  Rate: ${def.attackSpeed}/s`);
+        if (def.energyCost > 0) infoLines.push(`▸ Consumes ${def.energyCost} energy`);
         if (def.produces && def.produces.length > 0) {
           const names = def.produces.map(t => UNITS[t]?.name || t).join(', ');
-          infoLines.push(`Produces: ${names}`);
+          infoLines.push(`▸ Produces: ${names}`);
         }
         if (def.requiresAge && AGE_ORDER.indexOf(this.factionAge) < AGE_ORDER.indexOf(def.requiresAge)) {
           const ageDef = AGES[def.requiresAge];
-          infoLines.push(`Requires age: ${ageDef?.name || def.requiresAge}`);
+          infoLines.push(`▸ Requires age: ${ageDef?.name || def.requiresAge}`);
         }
         if (def.requiresBuilding && def.requiresBuilding.length > 0) {
           const names = def.requiresBuilding.map(b => BUILDINGS[b]?.name || b).join(', ');
-          infoLines.push(`Requires: ${names}`);
+          infoLines.push(`▸ Requires: ${names}`);
         }
       }
       if (infoLines.length > 0) {
-        ctx.fillStyle = '#7799bb';
+        ctx.fillStyle = '#77aacc';
         ctx.font = `${Math.round(9 * S)}px monospace`;
         for (let i = 0; i < infoLines.length; i++) {
-          ctx.fillText(infoLines[i], panelX + Math.round(10 * S), infoY + i * Math.round(13 * S));
+          ctx.fillText(infoLines[i], infoX, infoY + i * Math.round(13 * S));
         }
       }
 
-      // Separator line before HP
-      const sepY = infoY + infoLines.length * Math.round(13 * S) + Math.round(4 * S);
+      // Separator line before HP section
+      const sepY = infoY + infoLines.length * Math.round(13 * S) + Math.round(6 * S);
       ctx.strokeStyle = THEME.GRID;
-      ctx.globalAlpha = 0.3;
+      ctx.globalAlpha = 0.25;
       ctx.lineWidth = 0.5;
       ctx.beginPath();
       ctx.moveTo(panelX + Math.round(10 * S), sepY);
@@ -837,7 +842,7 @@ export class HUD {
       ctx.stroke();
       ctx.globalAlpha = 1;
 
-      const hpY = sepY + Math.round(6 * S);
+      const hpY = sepY + Math.round(8 * S);
       const hp = `HP: ${Math.ceil(sel.hp)}/${sel.maxHp}`;
       ctx.fillStyle = THEME.NEUTRAL_GREY;
       ctx.font = `${Math.round(11 * S)}px monospace`;
