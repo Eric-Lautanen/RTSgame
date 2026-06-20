@@ -741,7 +741,76 @@ export class HUD {
     if (sel instanceof Building) {
       const S = 1.5;
       const panelW = Math.round(300 * S);
-      const panelH = Math.round(290 * S);
+
+      // First, compute the panel size by measuring all content
+      const def = sel.def;
+      const produces = sel.def?.produces || [];
+      const btnH = Math.round(30 * S);
+      const gap6 = Math.round(6 * S);
+      const cols = Math.min(produces.length, 3);
+      const btnW = cols > 0 ? Math.floor(((panelW - Math.round(20 * S)) - (cols - 1) * gap6) / cols) : 0;
+      const nRows = cols > 0 ? Math.ceil(produces.length / cols) : 0;
+      const produceH = nRows > 0 ? Math.round(16 * S) + nRows * (btnH + gap6) + Math.round(4 * S) : 0;
+
+      // Count description lines for height
+      const descText = def?.description || '';
+      let descLineCount = 0;
+      if (descText) {
+        const testSize = Math.round(10 * S);
+        const testLineH = Math.round(15 * S);
+        const maxW = panelW - Math.round(20 * S);
+        ctx.font = `${testSize}px monospace`;
+        const words = descText.split(' ');
+        let line = '';
+        for (const w of words) {
+          const test = line ? line + ' ' + w : w;
+          if (ctx.measureText(test).width > maxW) {
+            descLineCount++;
+            line = w;
+          } else {
+            line = test;
+          }
+        }
+        if (line) descLineCount++;
+        ctx.font = `bold ${Math.round(14 * S)}px monospace`;
+      }
+
+      // Info lines
+      const infoLines = [];
+      if (def) {
+        if (def.supplyProvided > 0) infoLines.push(`\u25B8 Provides +${def.supplyProvided} supply`);
+        if (def.powerRadius > 0) infoLines.push(`\u25B8 Power field (radius ${def.powerRadius})`);
+        if (sel.type === 'nexus') infoLines.push('\u25B8 Drop-off + passive income +1 energy/s +0.5 matter/s');
+        if (sel.type === 'supply_depot' || sel.type === 'refinery' || sel.type === 'energy_condenser') infoLines.push('\u25B8 Drop-off point for workers');
+        if (sel.type === 'turret' && def.damage) infoLines.push(`\u25B8 Damage: ${def.damage}  Range: ${def.range}  Rate: ${def.attackSpeed}/s`);
+        if (def.energyCost > 0) infoLines.push(`\u25B8 Consumes ${def.energyCost} energy`);
+        if (def.produces && def.produces.length > 0) {
+          const names = def.produces.map(t => UNITS[t]?.name || t).join(', ');
+          infoLines.push(`\u25B8 Trains: ${names}`);
+        }
+        if (def.requiresAge && AGE_ORDER.indexOf(this.factionAge) < AGE_ORDER.indexOf(def.requiresAge)) {
+          const ageDef = AGES[def.requiresAge];
+          infoLines.push(`\u25B8 Needs age: ${ageDef?.name || def.requiresAge}`);
+        }
+        if (def.requiresBuilding && def.requiresBuilding.length > 0) {
+          const names = def.requiresBuilding.map(b => BUILDINGS[b]?.name || b).join(', ');
+          infoLines.push(`\u25B8 Needs: ${names}`);
+        }
+      }
+
+      const hasQueue = sel.productionQueue && sel.productionQueue.length > 0;
+      const queueH = hasQueue ? Math.round(28 * S) : 0;
+      const descInfoH = (descLineCount > 0 ? descLineCount * Math.round(15 * S) + Math.round(4 * S) : 0)
+        + infoLines.length * Math.round(15 * S);
+      const actionButtonsH = Math.round(46 * S); // space for 2 rows of action buttons at bottom
+
+      // Panel height = top padding + name + HP row + HP bar + gap + queue + produce buttons
+      //   + action buttons + separator + desc/info + bottom padding
+      const panelH = Math.round(8 * S) + Math.round(26 * S) + Math.round(16 * S)
+        + Math.round(4 * S) + Math.round(8 * S) + queueH + produceH
+        + actionButtonsH
+        + (descLineCount + infoLines.length > 0 ? Math.round(4 * S) + Math.round(1 * S) + Math.round(8 * S) : 0)
+        + descInfoH + Math.round(10 * S);
 
       let panelX = sp.x + bsr + 15;
       let panelY = sp.y - bsr - panelH + 30;
@@ -751,6 +820,7 @@ export class HUD {
       if (panelY + panelH > ch - 10) panelY = ch - panelH - 10;
       panelX = Math.max(10, Math.min(cw - panelW - 10, panelX));
 
+      // Draw panel background
       ctx.fillStyle = THEME.PANEL_BG;
       ctx.globalAlpha = 0.92;
       ctx.fillRect(panelX, panelY, panelW, panelH);
@@ -763,106 +833,93 @@ export class HUD {
 
       const px = panelX + Math.round(10 * S);
       const pw = panelW - Math.round(20 * S);
+      this._buttons = this._buttons.filter(b => b.action !== 'produce');
 
-      // ===== TOP SECTION: Name + HP + Production =====
+      // Top-to-bottom layout with y cursor
+      let y = panelY + Math.round(8 * S);
 
-      const def = sel.def;
+      // -- Name --
       const name = def?.name || sel.type || 'Unknown';
       ctx.fillStyle = THEME.SPECTER_WHITE;
       ctx.font = `bold ${Math.round(14 * S)}px monospace`;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      const nameY = panelY + Math.round(8 * S);
-      ctx.fillText(name, px, nameY);
+      ctx.fillText(name, px, y);
+      y += Math.round(26 * S);
 
-      // HP + Power status
-      const hpY = nameY + Math.round(26 * S);
-      const hp = `HP: ${Math.ceil(sel.hp)}/${sel.maxHp}`;
+      // -- HP + Power --
+      const hpText = `HP: ${Math.ceil(sel.hp)}/${sel.maxHp}`;
       ctx.fillStyle = THEME.NEUTRAL_GREY;
       ctx.font = `${Math.round(11 * S)}px monospace`;
-      ctx.fillText(hp, px, hpY);
-
+      ctx.fillText(hpText, px, y);
       if (sel.type !== 'nexus' && sel.type !== 'pylon') {
-        const powerColor = sel.powered ? THEME.SPECTER_CYAN : THEME.ENEMY_RED;
-        ctx.fillStyle = powerColor;
+        ctx.fillStyle = sel.powered ? THEME.SPECTER_CYAN : THEME.ENEMY_RED;
         ctx.font = `${Math.round(10 * S)}px monospace`;
         ctx.textAlign = 'right';
-        ctx.fillText(sel.powered ? '⚡ Powered' : '⛔ Unpowered', panelX + panelW - Math.round(10 * S), hpY);
+        ctx.fillText(sel.powered ? '\u26A1 Powered' : '\u26D4 Unpowered', panelX + panelW - Math.round(10 * S), y);
         ctx.textAlign = 'left';
       }
+      y += Math.round(16 * S);
 
+      // -- HP bar --
       const hpPct = sel.hp / sel.maxHp;
       const hpColor = hpPct > 0.5 ? THEME.SPECTER_CYAN : (hpPct > 0.25 ? THEME.UI_GOLD : THEME.ENEMY_RED);
-      const hpBarY = hpY + Math.round(16 * S);
       ctx.fillStyle = '#33111166';
-      ctx.fillRect(px, hpBarY, pw, Math.round(4 * S));
+      ctx.fillRect(px, y, pw, Math.round(4 * S));
       ctx.fillStyle = hpColor;
-      ctx.fillRect(px, hpBarY, pw * hpPct, Math.round(4 * S));
+      ctx.fillRect(px, y, pw * hpPct, Math.round(4 * S));
+      y += Math.round(8 * S);
 
-      // Production queue bar (if producing)
-      this._buttons = this._buttons.filter(b => b.action !== 'produce');
-
-      let afterHpY = hpBarY + Math.round(12 * S);
-
-      if (sel.productionQueue && sel.productionQueue.length > 0) {
+      // -- Queue bar --
+      if (hasQueue) {
         const firstType = sel.productionQueue[0];
         const unitDef = UNITS[firstType];
         if (unitDef && unitDef.buildTime) {
           const remaining = Math.max(0, sel.productionTimer);
           const progress = Math.min(1, Math.max(0, 1 - remaining / unitDef.buildTime));
-
           ctx.fillStyle = THEME.NEUTRAL_GREY;
           ctx.font = `${Math.round(9 * S)}px monospace`;
-          ctx.fillText(`Producing: ${unitDef.name}`, px, afterHpY);
-          const pbY = afterHpY + Math.round(14 * S);
+          ctx.fillText(`Producing: ${unitDef.name}`, px, y);
+          y += Math.round(14 * S);
           ctx.fillStyle = '#050510';
-          ctx.fillRect(px, pbY, pw, Math.round(10 * S));
+          ctx.fillRect(px, y, pw, Math.round(10 * S));
           ctx.fillStyle = THEME.SPECTER_CYAN;
           ctx.globalAlpha = 0.7;
-          ctx.fillRect(px + 1, pbY + 1, (pw - 2) * progress, Math.round(10 * S) - 2);
+          ctx.fillRect(px + 1, y + 1, (pw - 2) * progress, Math.round(10 * S) - 2);
           ctx.globalAlpha = 1;
           ctx.strokeStyle = '#334455';
           ctx.lineWidth = 0.5;
-          ctx.strokeRect(px, pbY, pw, Math.round(10 * S));
+          ctx.strokeRect(px, y, pw, Math.round(10 * S));
           ctx.fillStyle = THEME.SPECTER_WHITE;
           ctx.font = `${Math.round(8 * S)}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`${Math.floor(progress * 100)}%`, px + pw / 2, pbY + Math.round(5 * S));
+          ctx.fillText(`${Math.floor(progress * 100)}%`, px + pw / 2, y + Math.round(5 * S));
           ctx.textAlign = 'left';
-          afterHpY = pbY + Math.round(16 * S);
+          y += Math.round(16 * S);
         } else {
           ctx.fillStyle = THEME.NEUTRAL_GREY;
           ctx.font = `${Math.round(9 * S)}px monospace`;
-          ctx.fillText(`Queue: ${sel.productionQueue.length} units`, px, afterHpY);
-          afterHpY += Math.round(18 * S);
+          ctx.fillText(`Queue: ${sel.productionQueue.length} units`, px, y);
+          y += Math.round(18 * S);
         }
       }
 
-      // Produce buttons
-      const produces = sel.def?.produces || [];
-      let afterProduceY = afterHpY;
+      // -- Train buttons --
       if (produces.length > 0) {
-        const btnH = Math.round(30 * S);
-        const gap = Math.round(6 * S);
-        const cols = Math.min(produces.length, 3);
-        const btnW = Math.floor((pw - (cols - 1) * gap) / cols);
-
         ctx.fillStyle = THEME.NEUTRAL_GREY;
         ctx.font = `${Math.round(9 * S)}px monospace`;
-        ctx.fillText('Train:', px, afterProduceY);
+        ctx.fillText('Train:', px, y);
+        y += Math.round(16 * S);
 
-        const startY = afterProduceY + Math.round(16 * S);
-        const nCols = Math.min(produces.length, 3);
-        const nRows = Math.ceil(produces.length / nCols);
         for (let i = 0; i < produces.length; i++) {
           const unitType = produces[i];
           const unitDef = UNITS[unitType];
           if (!unitDef) continue;
-          const col = i % nCols;
-          const row = Math.floor(i / nCols);
-          const bx = px + col * (btnW + gap);
-          const by = startY + row * (btnH + gap);
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const bx = px + col * (btnW + gap6);
+          const by = y + row * (btnH + gap6);
 
           const prereqOk = this.engine && this.engine.production.canQueue(sel, unitType, this.engine.entities);
           const canProd = prereqOk && this.engine.resources.canAfford(unitDef.cost)
@@ -885,91 +942,78 @@ export class HUD {
           ctx.fillText(unitDef.name, bx + btnW / 2, by + Math.round(10 * S));
           ctx.font = `${Math.round(8 * S)}px monospace`;
           ctx.fillStyle = canProd ? THEME.NEUTRAL_GREY : '#445566';
-          ctx.fillText(`⚡${unitDef.cost?.energy||0} ◆${unitDef.cost?.matter||0}`, bx + btnW / 2, by + Math.round(22 * S));
+          ctx.fillText(`\u26A1${unitDef.cost?.energy||0} \u25C6${unitDef.cost?.matter||0}`, bx + btnW / 2, by + Math.round(22 * S));
           ctx.textAlign = 'left';
         }
-        afterProduceY = startY + nRows * (btnH + gap);
+        y += nRows * (btnH + gap6) + Math.round(4 * S);
       }
 
-      // ===== BOTTOM SECTION: Description + Info =====
+      // -- Action buttons row 2 (age advance, tech tree, cancel research) --
+      const btnRow2Y = y;
+      const btnAH = Math.round(18 * S);
+      const btnAGap = Math.round(6 * S);
 
-      const descStartY = afterProduceY + Math.round(6 * S);
-
-      // Separator before description
-      ctx.strokeStyle = THEME.GRID;
-      ctx.globalAlpha = 0.2;
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(px, descStartY);
-      ctx.lineTo(panelX + panelW - Math.round(10 * S), descStartY);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-
-      const descY = descStartY + Math.round(10 * S);
-      const descText = def?.description || '';
-      const descFontSize = Math.round(10 * S);
-      const descLineH = Math.round(15 * S);
-      const maxDescW = pw;
-      let descLineCount = 0;
-
-      if (descText) {
-        ctx.font = `${descFontSize}px monospace`;
-        ctx.fillStyle = '#bbccdd';
-        const words = descText.split(' ');
-        let line = '';
-        for (const w of words) {
-          const test = line ? line + ' ' + w : w;
-          if (ctx.measureText(test).width > maxDescW) {
-            ctx.fillText(line, px, descY + descLineCount * descLineH);
-            descLineCount++;
-            line = w;
-          } else {
-            line = test;
-          }
-        }
-        if (line) {
-          ctx.fillText(line, px, descY + descLineCount * descLineH);
-          descLineCount++;
+      if (sel.type === 'nexus' && this.engine && !this.advancingAge) {
+        const canAdvance = this.engine.canAdvanceAge();
+        const ageIdx = AGE_ORDER.indexOf(this.factionAge);
+        const nextAgeDef = ageIdx < AGE_ORDER.length - 1 ? AGES[AGE_ORDER[ageIdx + 1]] : null;
+        if (nextAgeDef) {
+          const aw = Math.round(200 * S);
+          this._buttons.push({ x: px, y: btnRow2Y, w: aw, h: btnAH, action: 'advance_age' });
+          ctx.fillStyle = canAdvance ? THEME.UI_GOLD + '44' : '#44556644';
+          ctx.strokeStyle = canAdvance ? THEME.UI_GOLD : '#556677';
+          ctx.lineWidth = 1;
+          ctx.fillRect(px, btnRow2Y, aw, btnAH);
+          ctx.strokeRect(px, btnRow2Y, aw, btnAH);
+          ctx.fillStyle = canAdvance ? THEME.UI_GOLD : '#889999';
+          ctx.font = `${Math.round(9 * S)}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`\u2191 ${nextAgeDef.name}  \u26A1${nextAgeDef.cost?.energy||0} \u25C6${nextAgeDef.cost?.matter||0}`, px + aw / 2, btnRow2Y + btnAH / 2);
+          ctx.textAlign = 'left';
         }
       }
 
-      // Stats info
-      const infoY = descY + descLineCount * descLineH + (descLineCount > 0 ? Math.round(4 * S) : 0);
-      const infoLines = [];
-      if (def) {
-        if (def.supplyProvided > 0) infoLines.push(`▸ Provides +${def.supplyProvided} supply`);
-        if (def.powerRadius > 0) infoLines.push(`▸ Projects power field (radius ${def.powerRadius})`);
-        if (sel.type === 'nexus') infoLines.push('▸ Drop-off point · Generates +1 energy/s, +0.5 matter/s');
-        if (sel.type === 'supply_depot' || sel.type === 'refinery' || sel.type === 'energy_condenser') infoLines.push('▸ Drop-off point — workers deposit resources here');
-        if (sel.type === 'turret' && def.damage) infoLines.push(`▸ Damage: ${def.damage}  Range: ${def.range}  Speed: ${def.attackSpeed}/s`);
-        if (def.energyCost > 0) infoLines.push(`▸ Consumes ${def.energyCost} energy to operate`);
-        if (def.produces && def.produces.length > 0) {
-          const names = def.produces.map(t => UNITS[t]?.name || t).join(', ');
-          infoLines.push(`▸ Trains: ${names}`);
-        }
-        if (def.requiresAge && AGE_ORDER.indexOf(this.factionAge) < AGE_ORDER.indexOf(def.requiresAge)) {
-          const ageDef = AGES[def.requiresAge];
-          infoLines.push(`▸ Requires age: ${ageDef?.name || def.requiresAge}`);
-        }
-        if (def.requiresBuilding && def.requiresBuilding.length > 0) {
-          const names = def.requiresBuilding.map(b => BUILDINGS[b]?.name || b).join(', ');
-          infoLines.push(`▸ Requires: ${names}`);
-        }
-      }
-      if (infoLines.length > 0) {
-        ctx.fillStyle = '#88bbdd';
-        ctx.font = `${Math.round(10 * S)}px monospace`;
-        for (let i = 0; i < infoLines.length; i++) {
-          ctx.fillText(infoLines[i], px, infoY + i * Math.round(15 * S));
+      if (sel.type === 'research_spire') {
+        const rw = Math.round(160 * S);
+        this._buttons.push({ x: px, y: btnRow2Y, w: rw, h: btnAH, action: 'research' });
+        ctx.fillStyle = this._showTechTree ? THEME.ENEMY_RED + '44' : THEME.SPECTER_PURPLE + '44';
+        ctx.strokeStyle = this._showTechTree ? THEME.ENEMY_RED : THEME.SPECTER_PURPLE;
+        ctx.lineWidth = 1;
+        ctx.fillRect(px, btnRow2Y, rw, btnAH);
+        ctx.strokeRect(px, btnRow2Y, rw, btnAH);
+        ctx.fillStyle = THEME.SPECTER_PURPLE;
+        ctx.font = `${Math.round(9 * S)}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this._showTechTree ? '\u2715 Close Tech' : '\uD83D\uDD2C Tech Tree', px + rw / 2, btnRow2Y + btnAH / 2);
+        ctx.textAlign = 'left';
+
+        if (this.research && this.research.queue.length > 0) {
+          const qx = px + rw + btnAGap;
+          const qw = Math.round(100 * S);
+          this._buttons.push({ x: qx, y: btnRow2Y, w: qw, h: btnAH, action: 'cancel_research' });
+          ctx.fillStyle = THEME.ENEMY_RED + '44';
+          ctx.strokeStyle = THEME.ENEMY_RED;
+          ctx.lineWidth = 1;
+          ctx.fillRect(qx, btnRow2Y, qw, btnAH);
+          ctx.strokeRect(qx, btnRow2Y, qw, btnAH);
+          ctx.fillStyle = THEME.ENEMY_RED;
+          ctx.font = `${Math.round(9 * S)}px monospace`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('\u2715 Cancel', qx + qw / 2, btnRow2Y + btnAH / 2);
+          ctx.textAlign = 'left';
         }
       }
 
+      // Upgrade button (top-right corner)
       if (sel.level !== undefined && sel.maxLevel) {
+        const ux = panelX + panelW - Math.round(66 * S);
+        const uy = panelY + Math.round(6 * S);
+        const uw = Math.round(58 * S);
+        const uh = Math.round(22 * S);
         if (sel.upgrading) {
-          const ux = panelX + panelW - Math.round(66 * S);
-          const uy = panelY + Math.round(6 * S);
-          const uw = Math.round(58 * S);
-          const uh = Math.round(22 * S);
           const progress = sel.upgradeDuration > 0 ? 1 - sel.upgradeTimer / sel.upgradeDuration : 0;
           ctx.fillStyle = '#050510';
           ctx.fillRect(ux, uy, uw, uh);
@@ -984,13 +1028,9 @@ export class HUD {
           ctx.font = `${Math.round(8 * S)}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`Lv.${sel.level}→${sel.level+1}`, ux + uw / 2, uy + uh / 2);
+          ctx.fillText(`Lv.${sel.level}\u2192${sel.level+1}`, ux + uw / 2, uy + uh / 2);
           ctx.textAlign = 'left';
         } else if (sel.level < sel.maxLevel) {
-          const ux = panelX + panelW - Math.round(66 * S);
-          const uy = panelY + Math.round(6 * S);
-          const uw = Math.round(58 * S);
-          const uh = Math.round(22 * S);
           this._buttons.push({ x: ux, y: uy, w: uw, h: uh, action: 'upgrade' });
           ctx.fillStyle = THEME.UI_GOLD + '44';
           ctx.strokeStyle = THEME.UI_GOLD;
@@ -1001,94 +1041,78 @@ export class HUD {
           ctx.font = `${Math.round(10 * S)}px monospace`;
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`↑ Lv.${sel.level + 1}`, ux + uw / 2, uy + uh / 2);
+          ctx.fillText(`\u2191 Lv.${sel.level + 1}`, ux + uw / 2, uy + uh / 2);
           ctx.textAlign = 'left';
         }
       }
 
-      const btnRowY = panelY + panelH - Math.round(24 * S);
-      const btnRow2Y = panelY + panelH - Math.round(46 * S);
-
-      if (sel.type === 'nexus' && this.engine && !this.advancingAge) {
-        const canAdvance = this.engine.canAdvanceAge();
-        const ageIdx = AGE_ORDER.indexOf(this.factionAge);
-        const nextAgeDef = ageIdx < AGE_ORDER.length - 1 ? AGES[AGE_ORDER[ageIdx + 1]] : null;
-        if (nextAgeDef) {
-          const ax = panelX + Math.round(10 * S);
-          const ay = btnRow2Y;
-          const aw = Math.round(140 * S);
-          const ah = Math.round(18 * S);
-          this._buttons.push({ x: ax, y: ay, w: aw, h: ah, action: 'advance_age' });
-          ctx.fillStyle = canAdvance ? THEME.UI_GOLD + '44' : '#44556644';
-          ctx.strokeStyle = canAdvance ? THEME.UI_GOLD : '#556677';
-          ctx.lineWidth = 1;
-          ctx.fillRect(ax, ay, aw, ah);
-          ctx.strokeRect(ax, ay, aw, ah);
-          ctx.fillStyle = canAdvance ? THEME.UI_GOLD : '#889999';
-          ctx.font = `${Math.round(9 * S)}px monospace`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(`↑ ${nextAgeDef.name}  ⚡${nextAgeDef.cost?.energy||0} ◆${nextAgeDef.cost?.matter||0}`, ax + aw / 2, ay + ah / 2);
-          ctx.textAlign = 'left';
-        }
-      }
-
-      if (sel.type === 'research_spire') {
-        const rx = panelX + Math.round(10 * S);
-        const ry = btnRow2Y;
-        const rw = Math.round(120 * S);
-        const rh = Math.round(18 * S);
-        this._buttons.push({ x: rx, y: ry, w: rw, h: rh, action: 'research' });
-        ctx.fillStyle = this._showTechTree ? THEME.ENEMY_RED + '44' : THEME.SPECTER_PURPLE + '44';
-        ctx.strokeStyle = this._showTechTree ? THEME.ENEMY_RED : THEME.SPECTER_PURPLE;
-        ctx.lineWidth = 1;
-        ctx.fillRect(rx, ry, rw, rh);
-        ctx.strokeRect(rx, ry, rw, rh);
-        ctx.fillStyle = THEME.SPECTER_PURPLE;
-        ctx.font = `${Math.round(9 * S)}px monospace`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this._showTechTree ? '✕ Close Tech' : '🔬 Tech Tree', rx + rw / 2, ry + rh / 2);
-        ctx.textAlign = 'left';
-      }
-
-      if (this.research && this.research.queue.length > 0 && sel.type === 'research_spire') {
-        const qx = panelX + Math.round(130 * S);
-        const qy = btnRow2Y;
-        const qw = Math.round(60 * S);
-        const qh = Math.round(18 * S);
-        this._buttons.push({ x: qx, y: qy, w: qw, h: qh, action: 'cancel_research' });
-        ctx.fillStyle = THEME.ENEMY_RED + '44';
-        ctx.strokeStyle = THEME.ENEMY_RED;
-        ctx.lineWidth = 1;
-        ctx.fillRect(qx, qy, qw, qh);
-        ctx.strokeRect(qx, qy, qw, qh);
-        ctx.fillStyle = THEME.ENEMY_RED;
-        ctx.font = `${Math.round(9 * S)}px monospace`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('✕ Cancel', qx + qw / 2, qy + qh / 2);
-        ctx.textAlign = 'left';
-      }
-
+      // -- Row 0 action buttons (scuttle / settings) --
+      const btnRowY = btnRow2Y + btnAH + Math.round(4 * S);
       if (sel.canScuttle()) {
-        const scuttleX = panelX + panelW - 96;
-        const scuttleY = btnRowY;
-        const scuttleW = 86;
-        const scuttleH = 18;
-        this._buttons.push({ x: scuttleX, y: scuttleY, w: scuttleW, h: scuttleH, action: 'scuttle' });
+        const scuttleW = Math.round(120 * S);
+        this._buttons.push({ x: px, y: btnRowY, w: scuttleW, h: btnAH, action: 'scuttle' });
         ctx.fillStyle = THEME.ENEMY_RED + '44';
         ctx.strokeStyle = THEME.ENEMY_RED;
         ctx.lineWidth = 1;
-        ctx.fillRect(scuttleX, scuttleY, scuttleW, scuttleH);
-        ctx.strokeRect(scuttleX, scuttleY, scuttleW, scuttleH);
+        ctx.fillRect(px, btnRowY, scuttleW, btnAH);
+        ctx.strokeRect(px, btnRowY, scuttleW, btnAH);
         ctx.fillStyle = THEME.ENEMY_RED;
-        ctx.font = '10px monospace';
+        ctx.font = `${Math.round(9 * S)}px monospace`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('✕ Scuttle', scuttleX + scuttleW / 2, scuttleY + scuttleH / 2);
+        ctx.fillText('\u2715 Scuttle (50% refund)', px + scuttleW / 2, btnRowY + btnAH / 2);
         ctx.textAlign = 'left';
       }
+
+      // Advance y past action buttons
+      y = btnRowY + btnAH;
+
+      // -- Description + Info section --
+      if (descLineCount + infoLines.length > 0) {
+        y += Math.round(4 * S);
+        ctx.strokeStyle = THEME.GRID;
+        ctx.globalAlpha = 0.2;
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(px, y);
+        ctx.lineTo(panelX + panelW - Math.round(10 * S), y);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        y += Math.round(8 * S);
+
+        if (descLineCount > 0) {
+          ctx.font = `${Math.round(10 * S)}px monospace`;
+          ctx.fillStyle = '#bbccdd';
+          const words = descText.split(' ');
+          let line = '';
+          let lineIdx = 0;
+          for (const w of words) {
+            const test = line ? line + ' ' + w : w;
+            if (ctx.measureText(test).width > pw) {
+              ctx.fillText(line, px, y + lineIdx * Math.round(15 * S));
+              lineIdx++;
+              line = w;
+            } else {
+              line = test;
+            }
+          }
+          if (line) {
+            ctx.fillText(line, px, y + lineIdx * Math.round(15 * S));
+          }
+          y += descLineCount * Math.round(15 * S) + Math.round(4 * S);
+        }
+
+        if (infoLines.length > 0) {
+          ctx.fillStyle = '#88bbdd';
+          ctx.font = `${Math.round(10 * S)}px monospace`;
+          for (let i = 0; i < infoLines.length; i++) {
+            ctx.fillText(infoLines[i], px, y + i * Math.round(15 * S));
+          }
+          y += infoLines.length * Math.round(15 * S);
+        }
+      }
+
+      y += Math.round(10 * S); // bottom padding
     } else if (sel instanceof Builder) {
       const panelW = 200;
       const panelH = 50;
