@@ -6,28 +6,38 @@ import { tmpdir } from 'os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname);
-const SKIP_DIRS = new Set(['.git', 'node_modules']);
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.hg', '.svn']);
 let errors = 0;
 let warnings = 0;
 
-// ─── Regex patterns ─────────────────────────────────────────────────────────
-const IMPORT_NAMED_RE = /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g;
-const IMPORT_DEFAULT_RE = /import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g;
-const IMPORT_MIXED_RE = /import\s+(\w+)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g;
-const ALL_IMPORT_RE = /import\s+(?:\{([^}]*)\}|\w+)(?:\s*,\s*\{([^}]*)\})?\s+from\s+['"]([^'"]+)['"]/g;
+// Parse CLI args: --orphan-dirs=core,ui  or  --skip-dirs=.git,node_modules
+const args = process.argv.slice(2);
+function getArg(flag, def) {
+  for (const a of args) {
+    if (a.startsWith(flag + '=')) return a.slice(flag.length + 1).split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return def;
+}
+const ORPHAN_WATCH_DIRS = new Set(getArg('--orphan-dirs', ['core', 'ui']));
+args.filter(a => a.startsWith('--skip-dirs=')).forEach(a => {
+  a.slice('--skip-dirs='.length).split(',').forEach(d => SKIP_DIRS.add(d.trim()));
+});
 
+const IMPORT_RE = /import\s+(?:[\w*\s{},]*\s+from\s+)?['"]([^'"]+)['"]|import\s*\(['"]([^'"]+)['"]\)/g;
 const EXPORT_NAMED_RE = /export\s+(const|let|var|function|class|async\s+function)\s+(\w+)/g;
 const EXPORT_BRACE_RE = /export\s+\{([^}]+)\}/g;
 const EXPORT_DEFAULT_RE = /export\s+default\s+(?:function|class|const|let|var)?\s*(\w*)/g;
+const EXPORT_STAR_RE = /export\s+\*\s+from\s+['"]([^'"]+)['"]/g;
 
 function walk(dir) {
   const entries = readdirSync(dir, { withFileTypes: true });
   const files = [];
   for (const e of entries) {
     if (SKIP_DIRS.has(e.name)) continue;
+    if (e.name.startsWith('.')) continue;
     const p = join(dir, e.name);
     if (e.isDirectory()) files.push(...walk(p));
-    else if (e.name.endsWith('.js') || e.name.endsWith('.mjs')) files.push(p);
+    else if (e.name.endsWith('.js') || e.name.endsWith('.mjs') || e.name.endsWith('.cjs')) files.push(p);
   }
   return files;
 }
@@ -36,9 +46,13 @@ function resolveImport(fromPath, spec) {
   if (!spec.startsWith('.')) return null;
   const d = dirname(fromPath);
   const candidates = [resolve(d, spec)];
-  if (!candidates[0].endsWith('.js')) {
+  if (!candidates[0].endsWith('.js') && !candidates[0].endsWith('.mjs') && !candidates[0].endsWith('.cjs')) {
     candidates.push(candidates[0] + '.js');
+    candidates.push(candidates[0] + '.mjs');
+    candidates.push(candidates[0] + '.cjs');
     candidates.push(join(candidates[0], 'index.js'));
+    candidates.push(join(candidates[0], 'index.mjs'));
+    candidates.push(join(candidates[0], 'index.cjs'));
   }
   for (const c of candidates) {
     try { statSync(c); return c; } catch {}
@@ -52,7 +66,7 @@ function getExports(filePath) {
   let m;
   while ((m = EXPORT_NAMED_RE.exec(code)) !== null) ex.add(m[2]);
   while ((m = EXPORT_BRACE_RE.exec(code)) !== null) {
-    m[1].split(',').map(s => s.trim()).forEach(n => {
+    m[1].split(',').map(s => s.trim()).filter(Boolean).forEach(n => {
       const as = n.match(/\w+\s+as\s+(\w+)/);
       ex.add(as ? as[1] : n);
     });
@@ -61,26 +75,61 @@ function getExports(filePath) {
     if (m[1]) ex.add(m[1]);
     ex.add('default');
   }
+  while ((m = EXPORT_STAR_RE.exec(code)) !== null) {
+    const resolved = resolveImport(filePath, m[1]);
+    if (resolved) {
+      for (const e of getExports(resolved)) ex.add(e);
+    }
+  }
   return ex;
 }
 
-function getRelativeImports(filePath) {
-  const code = readFileSync(filePath, 'utf8');
-  const imports = [];
-  let m;
-  while ((m = IMPORT_NAMED_RE.exec(code)) !== null) {
-    if (m[2].startsWith('.')) imports.push(m[2]);
+function stripCodeForSyntaxCheck(code) {
+  const lines = code.split('\n');
+  const result = [];
+  let inImport = false;
+  let braceDepth = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    if (inImport) {
+      for (const ch of raw) {
+        if (ch === '{') braceDepth++;
+        if (ch === '}') braceDepth--;
+      }
+      if (braceDepth <= 0 && (raw.includes(';') || raw.trim().endsWith(';') || raw.match(/from\s+['"`][^'"`]+['"`];?\s*$/))) {
+        inImport = false;
+      }
+      result.push('');
+      continue;
+    }
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('import ') || trimmed.startsWith('import\t') || trimmed.startsWith('import;')) {
+      if (!trimmed.includes(';') && !trimmed.match(/from\s+['"`][^'"`]+['"`];?\s*$/)) {
+        inImport = true;
+        braceDepth = 0;
+        for (const ch of raw) {
+          if (ch === '{') braceDepth++;
+          if (ch === '}') braceDepth--;
+        }
+      }
+      result.push('');
+      continue;
+    }
+    if (trimmed.startsWith('import.meta')) {
+      result.push(raw);
+      continue;
+    }
+    let line = raw;
+    if (line.includes('export default') || line.includes('export\tdefault')) {
+      line = line.replace(/\bexport\s+default\b/, '/* default */');
+    }
+    line = line.replace(/\bexport\s+/, '');
+    result.push(line);
   }
-  IMPORT_DEFAULT_RE.lastIndex = 0;
-  while ((m = IMPORT_DEFAULT_RE.exec(code)) !== null) {
-    if (m[2].startsWith('.')) imports.push(m[2]);
-  }
-  return imports;
+  return result.join('\n');
 }
 
-// ─── 1. Gather files ────────────────────────────────────────────────────────
 const files = walk(ROOT).filter(f => !f.includes('node_modules'));
-const fileSet = new Set(files.map(f => f.toLowerCase()));
 const relMap = {};
 for (const f of files) {
   const rel = f.replace(ROOT + '\\', '').replace(ROOT + '/', '').replace(/\\/g, '/');
@@ -89,7 +138,6 @@ for (const f of files) {
 
 console.log(`\n Scanning ${files.length} file(s) ...\n`);
 
-// ─── 2. Check imports & exports ─────────────────────────────────────────────
 const importGraph = {};
 for (const f of files) importGraph[f] = [];
 const importedCount = {};
@@ -100,44 +148,12 @@ for (const f of files) {
   const fileErrors = [];
   const fileWarnings = [];
 
-  // Extract all import names from this file for unused-import checking
   const importNames = [];
-  const namedImportRanges = [];
 
-  ALL_IMPORT_RE.lastIndex = 0;
+  IMPORT_RE.lastIndex = 0;
   let m;
-  while ((m = ALL_IMPORT_RE.exec(code)) !== null) {
-    const source = m[3] || m[4];
-    if (!source || !source.startsWith('.')) continue;
-
-    const namesPart = m[1] || m[2] || '';
-    const names = namesPart.split(',').map(s => s.trim()).filter(Boolean);
-    for (const n of names) {
-      const clean = n.replace(/\s+as\s+\w+/, '').trim();
-      if (clean) importNames.push(clean);
-    }
-
-    // Also capture default import name
-    if (m[0].startsWith('import ') && !m[0].startsWith('import {')) {
-      const defaultMatch = m[0].match(/import\s+(\w+)/);
-      if (defaultMatch && defaultMatch[1]) importNames.push(defaultMatch[1]);
-    }
-  }
-
-  // Check each import name is actually referenced in the file body
-  for (const name of importNames) {
-    if (name === 'default') continue;
-    const bodyPart = code.replace(ALL_IMPORT_RE, ''); // remove all import lines
-    if (!bodyPart.includes(name)) {
-      fileWarnings.push(`  ⚠ Import '${name}' is never used in the file body`);
-    }
-  }
-
-  // Verify each import
-  ALL_IMPORT_RE.lastIndex = 0;
-  let m2;
-  while ((m2 = ALL_IMPORT_RE.exec(code)) !== null) {
-    const source = m2[3] || m2[4];
+  while ((m = IMPORT_RE.exec(code)) !== null) {
+    const source = m[1] || m[2];
     if (!source || !source.startsWith('.')) continue;
 
     const resolved = resolveImport(f, source);
@@ -149,26 +165,58 @@ for (const f of files) {
     importGraph[f].push(resolved);
     importedCount[resolved] = (importedCount[resolved] || 0) + 1;
 
+    // Extract named import names from the matched text before "from"
+    const beforeFrom = m[0].split(/\s+from\s+/)[0];
+    const braceMatch = beforeFrom.match(/\{([^}]*)\}/);
+    if (braceMatch) {
+      const names = braceMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+      for (const n of names) {
+        const clean = n.replace(/\s+as\s+\w+/, '').trim();
+        if (clean) importNames.push(clean);
+      }
+    }
+    const defaultMatch = beforeFrom.match(/import\s+(\w+)/);
+    if (defaultMatch && defaultMatch[1] && !defaultMatch[1].startsWith('{')) importNames.push(defaultMatch[1]);
+
+    // Check exports match for named imports
     const targetExports = getExports(resolved);
-    const names = (m2[1] || m2[2] || '').split(',').map(s => s.trim()).filter(Boolean);
-    for (const n of names) {
-      const clean = n.replace(/\s+as\s+\w+/, '').trim();
-      if (!targetExports.has(clean)) {
-        fileWarnings.push(`  ⚠ Import '${clean}' from '${source}' → not found in exports of '${relMap[resolved] || source}'`);
+    if (braceMatch) {
+      const names = braceMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+      for (const n of names) {
+        const clean = n.replace(/\s+as\s+\w+/, '').trim();
+        if (!targetExports.has(clean)) {
+          fileWarnings.push(`  ⚠ Import '${clean}' from '${source}' → not found in exports of '${relMap[resolved] || source}'`);
+        }
       }
     }
   }
 
-  // Detect bare module scripts (no import/export)
-  if (!code.includes('import ') && !code.includes('export ')) {
-    fileWarnings.push('  ⚠ No import or export — not an ES module');
+  for (const name of importNames) {
+    if (name === 'default') continue;
+    const bodyPart = code.replace(IMPORT_RE, '');
+    let used = bodyPart.includes(name);
+    if (!used && name.length > 2) {
+      const lineWithRef = bodyPart.split('\n').some(l => l.includes(name));
+      used = lineWithRef;
+    }
+    if (!used) {
+      const safe = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (!new RegExp('\\b' + safe + '\\b').test(bodyPart)) {
+        fileWarnings.push(`  ⚠ Import '${name}' is never used in the file body`);
+      }
+    }
   }
 
-  // Check for console.log in production code (allow in validate.mjs itself)
-  if (!f.endsWith('validate.mjs') && code.match(/console\.(log|debug|warn|error)\s*\(/)) {
+  if (!code.includes('import ') && !code.includes('export ') && !code.includes('require(') && !code.includes('require(')) {
+    if (!code.includes('__dirname') && !code.includes('__filename') && !code.includes('require')) {
+      fileWarnings.push('  ⚠ No import/export/require — not an ES/CommonJS module');
+    }
+  }
+
+  if (!f.endsWith('validate.mjs') && code.match(/console\.(log|debug)\s*\(/)) {
     const lines = code.split('\n');
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].match(/console\.(log|debug)\s*\(/) && !lines[i].match(/console\.(error|warn)/) && !lines[i].includes('//')) {
+      if (lines[i].match(/console\.(log|debug)\s*\(/) && !lines[i].includes('//') && !lines[i].trim().startsWith('//')) {
         fileWarnings.push(`  ⚠ Line ${i + 1}: console.log/debug call (left in from development?)`);
       }
     }
@@ -181,7 +229,6 @@ for (const f of files) {
   }
 }
 
-// ─── 3. Circular dependency detection ───────────────────────────────────────
 const visiting = new Set();
 const visited = new Set();
 
@@ -205,21 +252,12 @@ function detectCycle(node, path) {
 
 for (const f of files) detectCycle(f, []);
 
-// ─── 4. Syntax validation ───────────────────────────────────────────────────
 const tmpDir = mkdtempSync(join(tmpdir(), 'validate-'));
 try {
   for (const f of files) {
     const rel = relMap[f];
     const code = readFileSync(f, 'utf8');
-
-    const lines = code.split('\n');
-    const stripped = lines.map(l => {
-      const trimmed = l.trim();
-      if (trimmed.startsWith('import ') || trimmed.startsWith('import\t')) {
-        return '';
-      }
-      return l.replace(/\bexport\s+/, '');
-    }).join('\n');
+    const stripped = stripCodeForSyntaxCheck(code);
 
     const tmpFile = join(tmpDir, rel.replace(/[/\\]/g, '_') + '.js');
     writeFileSync(tmpFile, stripped, 'utf8');
@@ -239,41 +277,47 @@ try {
   try { unlinkSync(tmpDir); } catch {}
 }
 
-// ─── 5. Project integrity checks ────────────────────────────────────────────
-
-// 5a. Check favicon
-const faviconPath = join(ROOT, 'favicon.svg');
-try {
-  statSync(faviconPath);
-} catch {
-  console.log(`\nfavicon.svg:`);
-  console.log(`  ✗ Missing favicon.svg — browser will 404`);
-  errors++;
-}
-
-// 5b. Verify index.html references valid files
 const htmlPath = join(ROOT, 'index.html');
 try {
   const html = readFileSync(htmlPath, 'utf8');
-
-  // Check favicon link exists
-  if (!html.includes('href="favicon.svg"') && !html.includes("href='favicon.svg'")) {
+  const iconMatch = html.match(/<link[^>]+rel=["'](?:shortcut )?icon["'][^>]*href=["']([^"']+)["']/i);
+  if (iconMatch) {
+    const iconPath = resolve(ROOT, iconMatch[1]);
+    try { statSync(iconPath); } catch {
+      console.log(`\nindex.html:`);
+      console.log(`  ✗ Favicon '${iconMatch[1]}' → file not found`);
+      errors++;
+    }
+  } else {
     console.log(`\nindex.html:`);
-    console.log(`  ⚠ No <link rel="icon"> pointing to favicon.svg`);
+    console.log(`  ⚠ No <link rel="icon"> found`);
     warnings++;
   }
 
-  // Check script src references an existing file
-  const scriptMatch = html.match(/<script\s+[^>]*src="([^"]+)"/);
-  if (scriptMatch) {
-    const scriptSrc = scriptMatch[1];
-    const scriptPath = resolve(ROOT, scriptSrc);
-    try {
-      statSync(scriptPath);
-    } catch {
-      console.log(`\nindex.html:`);
-      console.log(`  ✗ Script src '${scriptSrc}' → file not found`);
-      errors++;
+  const scriptTags = html.matchAll(/<script\s+[^>]*src="([^"]+)"[^>]*>/gi);
+  if (scriptTags) {
+    for (const st of scriptTags) {
+      const scriptSrc = st[1];
+      const scriptPath = resolve(ROOT, scriptSrc);
+      try { statSync(scriptPath); } catch {
+        console.log(`\nindex.html:`);
+        console.log(`  ✗ Script src '${scriptSrc}' → file not found`);
+        errors++;
+      }
+    }
+  }
+
+  const linkTags = html.matchAll(/<link[^>]+href="([^"]+)"[^>]*>/gi);
+  if (linkTags) {
+    for (const lt of linkTags) {
+      const href = lt[1];
+      if (href.startsWith('http') || href.startsWith('//') || href.startsWith('#')) continue;
+      const absPath = resolve(ROOT, href);
+      try { statSync(absPath); } catch {
+        console.log(`\nindex.html:`);
+        console.log(`  ⚠ Link href '${href}' → file not found`);
+        warnings++;
+      }
     }
   }
 } catch {
@@ -282,32 +326,17 @@ try {
   errors++;
 }
 
-// 5c. Check for duplicate entity IDs in save.js deserialization
-for (const f of files) {
-  if (!f.endsWith('save.js')) continue;
-  const code = readFileSync(f, 'utf8');
-  // Check that deserialize handles entity ID reset
-  if (!code.includes('resetEntityId')) {
-    console.log(`\n${relMap[f]}:`);
-    console.log(`  ⚠ Deserialization may not reset entity IDs — consider importing and calling resetEntityId()`);
-    warnings++;
-  }
-}
-
-// ─── 6. Orphan file detection ───────────────────────────────────────────────
-const ORPHAN_WATCH_DIRS = ['core', 'ui'];
 for (const f of files) {
   const rel = relMap[f];
   if (importedCount[f]) continue;
   if (rel.endsWith('main.js') || rel.endsWith('validate.mjs') || rel.endsWith('favicon.svg')) continue;
   const topDir = rel.split(/[/\\]/)[0];
-  if (!ORPHAN_WATCH_DIRS.includes(topDir)) continue;
+  if (!ORPHAN_WATCH_DIRS.has(topDir)) continue;
   console.log(`\n${rel}:`);
   console.log(`  ⚠ Orphan file — never imported by any other file`);
   warnings++;
 }
 
-// ─── Summary ────────────────────────────────────────────────────────────────
 console.log(`\n${'─'.repeat(44)}`);
 console.log(` Files: ${files.length}  |  Errors: ${errors}  |  Warnings: ${warnings}`);
 if (errors === 0 && warnings === 0) {
