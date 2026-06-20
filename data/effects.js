@@ -1,0 +1,38 @@
+export const EFFECTS = {
+  death_burst: {
+    particleCount: 12,
+    speed: 2,
+    lifetime: 0.8,
+    color: '#00ffcc',
+    glowColor: '#00ffcc',
+    size: 3,
+    shape: 'circle',
+  },
+  spawn_shimmer: {
+    particleCount: 8,
+    speed: 1,
+    lifetime: 0.5,
+    color: '#e8eaff',
+    glowColor: '#e8eaff',
+    size: 2,
+    shape: 'circle',
+  },
+  hit_flash: {
+    particleCount: 4,
+    speed: 3,
+    lifetime: 0.3,
+    color: '#ffffff',
+    glowColor: '#ffffff',
+    size: 2,
+    shape: 'circle',
+  },
+  explosion: {
+    particleCount: 20,
+    speed: 4,
+    lifetime: 1.2,
+    color: '#ff4466',
+    glowColor: '#ff4466',
+    size: 4,
+    shape: 'circle',
+  },
+};

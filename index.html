@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spectral RTS</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #03020a;
+      overflow: hidden;
+      font-family: monospace;
+      cursor: crosshair;
+    }
+
+    #game-canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    body.pointer-locked {
+      cursor: none;
+    }
+
+    /* Debug overlay — toggled via engine */
+    #debug {
+      position: fixed;
+      top: 40px;
+      left: 8px;
+      color: #00ffcc88;
+      font-size: 11px;
+      pointer-events: none;
+      white-space: pre;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <div id="debug"></div>
+
+  <!-- Single entry point. All imports are ES modules. -->
+  <script type="module" src="main.js"></script>
+</body>
+</html>

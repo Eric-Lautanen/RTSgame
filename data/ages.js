@@ -1,0 +1,48 @@
+export const AGE_ORDER = ['spectral_dawn', 'void_awakening', 'quantum_reach', 'eternity_singularity'];
+
+export const AGES = {
+  spectral_dawn: {
+    name: 'Spectral Dawn',
+    order: 1,
+    cost: { energy: 0, matter: 0 },
+    buildTime: 0,
+    requiredBuildings: [],
+    bonuses: [],
+    unitCaps: { shade: 10, wraith: 5 },
+    enemyUnitCaps: { shade: 10, void_scout: 4 },
+    description: 'The awakening. Basic workers, scouts, and energy infrastructure.',
+  },
+  void_awakening: {
+    name: 'Void Awakening',
+    order: 2,
+    cost: { energy: 500, matter: 300 },
+    buildTime: 30,
+    requiredBuildings: ['barracks'],
+    bonuses: [{ type: 'unit_hp', value: 1.1 }],
+    unitCaps: { shade: 15, wraith: 8, specter: 6 },
+    enemyUnitCaps: { shade: 15, void_scout: 6, entropy_soldier: 5 },
+    description: 'Combat expands. Barracks, turrets, and military units become available.',
+  },
+  quantum_reach: {
+    name: 'Quantum Reach',
+    order: 3,
+    cost: { energy: 1000, matter: 600 },
+    buildTime: 45,
+    requiredBuildings: ['research_spire'],
+    bonuses: [{ type: 'unit_damage', value: 1.15 }],
+    unitCaps: { shade: 20, wraith: 10, specter: 10, phantom: 6 },
+    enemyUnitCaps: { shade: 20, void_scout: 8, entropy_soldier: 8, null_mage: 4 },
+    description: 'Advanced technology. Ranged units, research, and powerful upgrades.',
+  },
+  eternity_singularity: {
+    name: 'Eternity Singularity',
+    order: 4,
+    cost: { energy: 2000, matter: 1200 },
+    buildTime: 60,
+    requiredBuildings: ['research_spire'],
+    bonuses: [{ type: 'unit_hp', value: 1.2 }, { type: 'unit_damage', value: 1.2 }],
+    unitCaps: { shade: 25, wraith: 12, specter: 15, phantom: 10, void_titan: 4 },
+    enemyUnitCaps: { shade: 25, void_scout: 10, entropy_soldier: 10, null_mage: 6, collapse_titan: 3 },
+    description: 'Ultimate power. Titans, singularity weapons, and the path to victory.',
+  },
+};
