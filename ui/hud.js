@@ -120,8 +120,12 @@ export class HUD {
       return;
     }
 
-    const targetE = Math.max(0, this.resources.energy);
-    const targetM = Math.max(0, this.resources.matter);
+    if (!Number.isFinite(this._displayEnergy)) this._displayEnergy = 0;
+    if (!Number.isFinite(this._displayMatter)) this._displayMatter = 0;
+    const rawE = typeof this.resources.energy === 'number' ? this.resources.energy : 0;
+    const rawM = typeof this.resources.matter === 'number' ? this.resources.matter : 0;
+    const targetE = Math.max(0, rawE);
+    const targetM = Math.max(0, rawM);
     const lerpE = (targetE - this._displayEnergy) * 0.12;
     const lerpM = (targetM - this._displayMatter) * 0.12;
     if (Math.abs(lerpE) < 0.3) this._displayEnergy = targetE;

@@ -52,8 +52,14 @@ export class ResourceSystem {
   update(dt) {
     for (const [key, val] of Object.entries(this.passiveIncome)) {
       if (val > 0) {
-        this.resources[key] = (this.resources[key] || 0) + val * dt * this.incomeMultiplier;
+        const inc = val * dt * (this.incomeMultiplier || 1);
+        if (Number.isFinite(inc) && inc > 0) {
+          this.resources[key] = (this.resources[key] || 0) + inc;
+        }
       }
+    }
+    for (const key of Object.keys(this.resources)) {
+      if (!Number.isFinite(this.resources[key])) this.resources[key] = 0;
     }
   }
 }
