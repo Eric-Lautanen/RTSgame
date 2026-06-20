@@ -49,7 +49,7 @@ export class ResourceSystem {
     this.passiveIncome[type] = (this.passiveIncome[type] || 0) + amount;
   }
 
-  update(dt) {
+  update(entities, dt) {
     for (const [key, val] of Object.entries(this.passiveIncome)) {
       if (val > 0) {
         const inc = val * dt * (this.incomeMultiplier || 1);
